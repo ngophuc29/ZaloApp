@@ -547,6 +547,7 @@ const Chat = () => {
                             />
                             <ChatList activeChats={activeChats} handleRoomClick={handleRoomClick}
                                 onOpenGroupModal={() => setGroupModalVisible(true)}
+                                activeRoom={currentRoom}  // Thêm dòng này
                             />
                             <ChatContainer
                                 currentRoom={currentRoom}
