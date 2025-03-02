@@ -38,7 +38,7 @@ const LoginRegister = () => {
           alert(result.message);
         } else {
           localStorage.setItem("username", result.username);
-          navigate("/home");
+          navigate("/chat");
         }
       })
       .catch((error) => {
