@@ -8,7 +8,7 @@ import ChatContainer from "../../components/ChatContainer";
 import GroupChatModal from "../../components/GroupChatModal";
 import GroupDetailsModal from "../../components/GroupDetailsModal";
 import FriendModal from "../../components/FriendModal";
-// import Contacts from "./Contacts"; // Giả sử bạn đã có file này
+import Contacts from "./Contacts"; // Sử dụng Contacts component đã tạo
 
 // Khởi tạo socket (điều chỉnh URL nếu cần)
 const socket = io("http://localhost:5000");
@@ -32,7 +32,7 @@ const getMessageId = (msg) => {
 const Chat = () => {
     const navigate = useNavigate();
     // State quản lý các tab và dữ liệu chat
-    const [activeTab, setActiveTab] = useState("chat");
+    const [activeTab, setActiveTab] = useState("chat"); // "chat" hoặc "contacts"
     const [message, setMessage] = useState("");
     const [messages, setMessages] = useState([]);
     const [currentRoom, setCurrentRoom] = useState(localStorage.getItem("currentRoom") || null);
@@ -82,7 +82,7 @@ const Chat = () => {
         socket.emit("getFriends", myname);
         socket.on("friendsList", (data) => setFriends(data));
 
-        // Các handler của socket
+        // Các handler socket cho tin nhắn và group chat
         const handleHistory = (data) => {
             const history = JSON.parse(data);
             setMessages(history);
@@ -333,7 +333,7 @@ const Chat = () => {
         };
     }, [groupDetailsVisible, myname]);
 
-    // Các hàm xử lý
+    // Các hàm xử lý tin nhắn, group, và friend
     const sendMessage = () => {
         if (!currentRoom) {
             alert("Vui lòng chọn user hoặc cuộc chat để chat.");
@@ -382,9 +382,7 @@ const Chat = () => {
 
     const handleRoomClick = (room) => {
         if (currentRoom !== room) {
-            if (currentRoom) {
-                leaveRoom(currentRoom);
-            }
+            if (currentRoom) leaveRoom(currentRoom);
             setCurrentRoom(room);
             joinRoom(room);
             setMessages([]);
@@ -401,9 +399,7 @@ const Chat = () => {
     const handleUserClick = (targetUser) => {
         if (targetUser === myname) return;
         const room = [myname, targetUser].sort().join("-");
-        if (currentRoom && currentRoom !== room) {
-            leaveRoom(currentRoom);
-        }
+        if (currentRoom && currentRoom !== room) leaveRoom(currentRoom);
         setCurrentRoom(room);
         joinRoom(room);
         setMessages([]);
@@ -417,22 +413,7 @@ const Chat = () => {
         alert("Chat với " + targetUser);
     };
 
-    // const handleCreateGroup = () => {
-    //     if (!groupName) {
-    //         alert("Vui lòng nhập tên nhóm");
-    //         return;
-    //     }
-    //     if (selectedMembers.length === 0) {
-    //         alert("Chọn ít nhất 1 thành viên");
-    //         return;
-    //     }
-    //     socket.emit("createGroupChat", { groupName, members: selectedMembers });
-    //     setGroupModalVisible(false);
-    //     setGroupName("");
-    //     setSelectedMembers([]);
-    // };
     const handleCreateGroup = () => {
-        console.log("handleCreateGroup được gọi với:", { groupName, selectedMembers });
         if (!groupName) {
             alert("Vui lòng nhập tên nhóm");
             return;
@@ -441,7 +422,6 @@ const Chat = () => {
             alert("Chọn ít nhất 1 thành viên");
             return;
         }
-        // Giả sử socket đã được khởi tạo và truyền qua context hoặc biến toàn cục
         socket.emit("createGroupChat", { groupName, members: selectedMembers });
         setGroupModalVisible(false);
         setGroupName("");
@@ -498,22 +478,19 @@ const Chat = () => {
         socket.emit("addFriend", { myUsername: myname, friendUsername });
     };
 
-    // Lọc danh sách tài khoản cho UserPanel
     const filteredAccounts = accounts.filter((acc) =>
         acc.username.toLowerCase().includes(searchFilter.toLowerCase())
     );
+
     const sendMessageHandler = (msg) => {
         if (!currentRoom) {
             alert("Vui lòng chọn user hoặc cuộc chat để chat.");
             return;
         }
-
         let messageObj;
-        // Nếu msg được truyền vào là một đối tượng, dùng nó luôn (ví dụ tin nhắn file)
         if (msg && typeof msg === "object") {
             messageObj = msg;
         } else {
-            // Nếu không có đối số thì dùng state message (text)
             if (message.trim() === "") return;
             messageObj = {
                 id: Date.now(),
@@ -545,16 +522,18 @@ const Chat = () => {
                                 myname={myname}
                                 setFriendModalVisible={setFriendModalVisible}
                             />
-                            <ChatList activeChats={activeChats} handleRoomClick={handleRoomClick}
+                            <ChatList
+                                activeChats={activeChats}
+                                handleRoomClick={handleRoomClick}
                                 onOpenGroupModal={() => setGroupModalVisible(true)}
-                                activeRoom={currentRoom}  // Thêm dòng này
+                                activeRoom={currentRoom}
                             />
                             <ChatContainer
                                 currentRoom={currentRoom}
                                 activeChats={activeChats}
                                 messages={messages}
                                 myname={myname}
-                                sendMessage={sendMessageHandler}  // Sửa ở đây
+                                sendMessage={sendMessageHandler}
                                 handleKeyDown={handleKeyDown}
                                 inputRef={inputRef}
                                 message={message}
@@ -573,9 +552,9 @@ const Chat = () => {
                                     socket.emit("getGroupDetails", { roomId: currentRoom });
                                 }}
                             />
-
                         </div>
                     ) : (
+                        // Nếu activeTab không phải chat, hiển thị Contacts (danh bạ)
                         <Contacts />
                     )}
                 </div>
