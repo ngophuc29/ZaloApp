@@ -9,7 +9,7 @@ import GroupChatModal from "../../components/GroupChatModal";
 import GroupDetailsModal from "../../components/GroupDetailsModal";
 import FriendModal from "../../components/FriendModal";
 import Contacts from "./Contacts"; // Sử dụng Contacts component đã tạo
-
+import LeftPanel from "../../components/LeftPanel";
 // Khởi tạo socket (điều chỉnh URL nếu cần)
 const socket = io("http://localhost:5000");
 
@@ -514,7 +514,7 @@ const Chat = () => {
                 <div className="col-10">
                     {activeTab === "chat" ? (
                         <div className="row">
-                            <UserPanel
+                            {/* <UserPanel
                                 searchFilter={searchFilter}
                                 setSearchFilter={setSearchFilter}
                                 filteredAccounts={filteredAccounts}
@@ -527,6 +527,17 @@ const Chat = () => {
                                 handleRoomClick={handleRoomClick}
                                 onOpenGroupModal={() => setGroupModalVisible(true)}
                                 activeRoom={currentRoom}
+                            /> */}
+                            <LeftPanel
+                                searchFilter={searchFilter}
+                                setSearchFilter={setSearchFilter}
+                                filteredAccounts={filteredAccounts}
+                                activeChats={activeChats}
+                                handleUserClick={handleUserClick} // Khi bấm vào user ở danh sách search
+                                handleRoomClick={handleRoomClick} // Khi bấm vào 1 chat trong chat list
+                                activeRoom={currentRoom}
+                                setFriendModalVisible={setFriendModalVisible}
+                                onOpenGroupModal={() => setGroupModalVisible(true)}
                             />
                             <ChatContainer
                                 currentRoom={currentRoom}
