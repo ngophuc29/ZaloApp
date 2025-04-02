@@ -83,6 +83,7 @@ const LeftPanel = ({
                                         padding: "5px",
                                         borderBottom: "1px solid #ddd",
                                         backgroundColor: isActive ? "#f0f8ff" : "transparent",
+                                        listStyle:"none"
                                     }}
                                     onClick={() => handleRoomClick(room)}
                                 >

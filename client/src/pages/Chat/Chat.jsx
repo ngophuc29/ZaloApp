@@ -48,6 +48,7 @@ const Chat = () => {
     const [friendModalVisible, setFriendModalVisible] = useState(false);
     const [friendInput, setFriendInput] = useState("");
     const [friends, setFriends] = useState([]);
+    
     const inputRef = useRef(null);
     const myname = localStorage.getItem("username") || "Guest";
 
@@ -126,7 +127,7 @@ const Chat = () => {
                     localStorage.setItem("activeChats", JSON.stringify(updated));
                     return updated;
                 });
-                alert(`Có tin nhắn mới từ ${obj.name}: ${obj.message}`);
+                // alert(`Có tin nhắn mới từ ${obj.name}: ${obj.message}`);
             }
         };
 
@@ -511,7 +512,7 @@ const Chat = () => {
                     setActiveTab={setActiveTab}
                     navigate={navigate}
                 />
-                <div className="col-10">
+                <div className="col-11">
                     {activeTab === "chat" ? (
                         <div className="row">
                             {/* <UserPanel

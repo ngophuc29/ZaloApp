@@ -73,7 +73,8 @@ const ChatContainer = ({
         }
     }, [messages]);
     return (
-        <div className="col-6" style={{ padding: "10px", position: "relative" }}>
+        <div className="col-9" style={{ padding: "10px", position: "relative" }}>
+            <h3 style={{textAlign:'left'}}>Chat Room: {currentRoom}</h3>
             <button className="btn btn-secondary mb-2" onClick={onGetGroupDetails}>
                 Group Details
             </button>
