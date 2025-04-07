@@ -563,6 +563,7 @@ const Chat = () => {
                                     }
                                     socket.emit("getGroupDetails", { roomId: currentRoom });
                                 }}
+                                socket={socket}
                             />
                         </div>
                     ) : (
