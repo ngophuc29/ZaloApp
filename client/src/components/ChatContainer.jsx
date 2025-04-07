@@ -812,6 +812,8 @@ const ChatContainer = ({
     );
 };
 // Component phụ cho UI trạng thái cuộc gọi
+
+
 const CallStatusUI = ({ message, buttons }) => (
     <div className="call-status-ui">
         <p>{message}</p>
