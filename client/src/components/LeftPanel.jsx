@@ -1,4 +1,5 @@
 import React from "react";
+import { FaSearch, FaUserPlus, FaUsers } from "react-icons/fa"; // icon mới
 
 const LeftPanel = ({
     searchFilter,
@@ -15,16 +16,23 @@ const LeftPanel = ({
 
     return (
         <div className="col-3 border-end" style={{ padding: "10px" }}>
-            {/* Ô search và nút (Kết bạn/Đóng) */}
-            <div className="mb-3 d-flex">
-                <input
-                    type="text"
-                    id="search_user"
-                    className="form-control"
-                    placeholder="Search user by name"
-                    value={searchFilter}
-                    onChange={(e) => setSearchFilter(e.target.value)}
-                />
+            {/* Search Bar & Buttons */}
+            <div className="mb-3 d-flex align-items-center">
+                {/* Ô search với icon kính lúp bên trong */}
+                <div className="input-group">
+                    <span className="input-group-text bg-white">
+                        <FaSearch />
+                    </span>
+                    <input
+                        type="text"
+                        className="form-control"
+                        placeholder="Tìm kiếm"
+                        value={searchFilter}
+                        onChange={(e) => setSearchFilter(e.target.value)}
+                    />
+                </div>
+
+                {/* Nút friend/group */}
                 {isSearching ? (
                     <button
                         className="btn btn-danger ms-2"
@@ -33,14 +41,25 @@ const LeftPanel = ({
                         Đóng
                     </button>
                 ) : (
-                    <button
-                        className="btn btn-success ms-2"
-                        onClick={() => setFriendModalVisible(true)}
-                    >
-                        Kết bạn
-                    </button>
+                    <>
+                        <button
+                            className="btn btn-light ms-2"
+                            onClick={() => setFriendModalVisible(true)}
+                            title="Kết bạn"
+                        >
+                            <FaUserPlus />
+                        </button>
+                        <button
+                            className="btn btn-light ms-2"
+                            onClick={onOpenGroupModal}
+                            title="Tạo nhóm"
+                        >
+                            <FaUsers />
+                        </button>
+                    </>
                 )}
             </div>
+
 
             {/* Danh sách bên dưới */}
             {isSearching ? (
@@ -66,12 +85,6 @@ const LeftPanel = ({
             ) : (
                 // Khi không search: hiển thị danh sách chat (vẫn cho phép chuyển room)
                 <div>
-                    <div className="d-flex justify-content-between align-items-center">
-                        <h3>Chats</h3>
-                        <button className="btn btn-primary" onClick={onOpenGroupModal}>
-                            +
-                        </button>
-                    </div>
                     <ul id="chat_list_ul" className="list-group">
                         {Object.keys(activeChats).map((room) => {
                             const isActive = room === activeRoom;
