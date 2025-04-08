@@ -34,6 +34,27 @@ const ChatContainer = ({
     const [facingMode, setFacingMode] = useState("user");
     const [isLoadingMedia, setIsLoadingMedia] = useState(false);
     const [mediaError, setMediaError] = useState(null);
+    const [userInfo, setUserInfo] = useState({});
+    const [userList, setUserList] = useState([]);
+
+    useEffect(() => {
+            const storedUser = JSON.parse(localStorage.getItem("user")) || {};
+            setUserInfo(storedUser);
+    
+            const usernameToFetch = myname || storedUser.username;
+            if (usernameToFetch) {
+                fetch(`http://localhost:5000/api/accounts/username/${usernameToFetch}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data && !data.message) {
+                            setUserInfo(data);
+                        }
+                    })
+                    .catch(err => {
+                        console.error("Lỗi khi lấy thông tin người dùng:", err);
+                    });
+            }
+        }, [myname]);
 
     // Khi chọn emoji, thêm emoji vào tin nhắn hiện tại
     const onEmojiClick = (emojiData, event) => {
@@ -490,6 +511,28 @@ const ChatContainer = ({
             cleanupCall();
         };
     }, []);
+
+   
+
+    useEffect(() => { 
+
+        fetch("http://localhost:5000/api/accounts")
+            .then((res) => res.json())
+            .then((data) => {
+                setUserList(data)
+                console.log(data);
+                
+            })
+            .catch((err) => console.error("Error fetching accounts:", err));
+    },[])
+
+    const getAvatarByName = (name) => {
+        const user = userList.find((u) => u.username === name);
+        return user?.image || "/default-avatar.jpg";
+    };
+
+
+    
     return (
         <div className="col-9" style={{ padding: "10px", position: "relative" }}>
             <h3 style={{ textAlign: 'left' }}>Chat Room: {currentRoom}</h3>
@@ -585,6 +628,7 @@ const ChatContainer = ({
                             )}
 
                             {/* Chat Bubble */}
+                           
                             <div
                                 style={{
                                     background: isMine ? "#dcf8c6" : "#fff",
@@ -595,10 +639,25 @@ const ChatContainer = ({
                                     position: "relative",
                                 }}
                             >
-                                <div style={{ fontWeight: "bold", marginBottom: "2px", textAlign: 'left' }}>
-                                    {/* {msg.name} */}
-                                    {msg.name === myname ? "" : msg.name}
-                                </div>
+                                {/* Avatar + Name */}
+                                {msg.name !== myname && (
+                                    <div style={{ display: "flex", alignItems: "center", marginBottom: "5px" }}>
+                                        <img
+                                            src={getAvatarByName(msg.name)}
+                                            alt="avatar"
+                                            style={{
+                                                width: "24px",
+                                                height: "24px",
+                                                borderRadius: "50%",
+                                                marginRight: "6px",
+                                                objectFit: "cover"
+                                            }}
+                                        />
+                                        <span style={{ fontWeight: "bold" }}>{msg.name}</span>
+                                    </div>
+                                )}
+
+                                {/* Message content */}
                                 {msg.message && <p style={{ margin: 0 }}>{msg.message}</p>}
                                 {msg.fileUrl && (
                                     <div style={{ marginTop: "5px" }}>
@@ -631,6 +690,7 @@ const ChatContainer = ({
                                     </span>
                                 )}
                             </div>
+
 
                             {/* Nếu tin nhắn của người khác, bạn có thể đặt action container bên phải */}
                             {!isMine && (
