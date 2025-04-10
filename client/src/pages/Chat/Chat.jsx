@@ -10,6 +10,7 @@ import GroupDetailsModal from "../../components/GroupDetailsModal";
 import FriendModal from "../../components/FriendModal";
 import Contacts from "./Contacts"; // Sử dụng Contacts component đã tạo
 import LeftPanel from "../../components/LeftPanel";
+
 // Khởi tạo socket (điều chỉnh URL nếu cần)
 const socket = io("http://localhost:5000");
 
@@ -48,7 +49,7 @@ const Chat = () => {
     const [friendModalVisible, setFriendModalVisible] = useState(false);
     const [friendInput, setFriendInput] = useState("");
     const [friends, setFriends] = useState([]);
-    
+
     const inputRef = useRef(null);
     const myname = localStorage.getItem("username") || "Guest";
 
@@ -111,6 +112,7 @@ const Chat = () => {
                 if (prev.find((msg) => getMessageId(msg) === msgId)) return prev;
                 return [...prev, obj];
             });
+            // Nếu message đến từ một phòng không phải phòng đang active thì cập nhật unread
             if (obj.room !== currentRoomRef.current && msgId && !processedUnreadMessagesRef.current.has(msgId)) {
                 processedUnreadMessagesRef.current.add(msgId);
                 setActiveChats((prev) => {
@@ -127,7 +129,6 @@ const Chat = () => {
                     localStorage.setItem("activeChats", JSON.stringify(updated));
                     return updated;
                 });
-                // alert(`Có tin nhắn mới từ ${obj.name}: ${obj.message}`);
             }
         };
 
@@ -149,11 +150,13 @@ const Chat = () => {
             );
         };
 
+        // Chỉnh sửa: Với private chat thì cập nhật unread ngay cả khi đã join room
         const handleNotification = (data) => {
             const obj = JSON.parse(data.message);
-            const msgId = getMessageId(obj);
             const roomNotified = data.room;
-            if (joinedRoomsRef.current.has(roomNotified)) return;
+            const msgId = getMessageId(obj);
+            // Nếu là group chat mới kiểm tra xem đã join room hay chưa.
+            if (roomNotified.includes("_") && joinedRoomsRef.current.has(roomNotified)) return;
             if (roomNotified !== currentRoomRef.current && msgId && !processedUnreadMessagesRef.current.has(msgId)) {
                 processedUnreadMessagesRef.current.add(msgId);
                 setActiveChats((prev) => {
@@ -187,7 +190,7 @@ const Chat = () => {
                     conversations.privateChats.forEach((chat) => {
                         const roomId = chat.roomId || chat.room;
                         if (!updated[roomId]) {
-                            updated[roomId] = { partner: chat.friend, unread: chat.unread || 0 };
+                            updated[roomId] = { partner: chat.friend, unread: chat.unread || 0, isGroup: false };
                         } else {
                             updated[roomId].unread = chat.unread || updated[roomId].unread;
                         }
@@ -293,6 +296,28 @@ const Chat = () => {
             localStorage.removeItem("chat_" + data.roomId);
         };
 
+        // --------------------
+        // Lắng nghe realtime friendAccepted
+        // --------------------
+        socket.on("friendAccepted", ({ friend, roomId }) => {
+            // Cập nhật activeChats nếu chưa có room chat cho private chat
+            setActiveChats((prev) => {
+                const updated = { ...prev };
+                if (!updated[roomId]) {
+                    updated[roomId] = { partner: friend, unread: 0, isGroup: false };
+                }
+                localStorage.setItem("activeChats", JSON.stringify(updated));
+                return updated;
+            });
+            // Auto join room đó (nếu cần)
+            socket.emit("join", roomId);
+            joinedRoomsRef.current.add(roomId);
+            // CHỈNH SỬA: Cập nhật currentRoom để UI chuyển sang chat đó
+            setCurrentRoom(roomId);
+            localStorage.setItem("currentRoom", roomId);
+            alert(`Bạn đã kết bạn với ${friend} và cuộc trò chuyện mới đã được mở.`);
+        });
+
         // Đăng ký các sự kiện socket
         socket.on("history", handleHistory);
         socket.on("reactionHistory", handleReactionHistory);
@@ -331,10 +356,11 @@ const Chat = () => {
             socket.off("groupDisbanded", handleGroupDisbanded);
             socket.off("friendsList");
             socket.off("addFriendResult");
+            socket.off("friendAccepted");  // Off event friendAccepted khi unmount
         };
     }, [groupDetailsVisible, myname]);
 
-    // Các hàm xử lý tin nhắn, group, và friend
+    // Hàm gửi tin nhắn
     const sendMessage = () => {
         if (!currentRoom) {
             alert("Vui lòng chọn user hoặc cuộc chat để chat.");
@@ -381,6 +407,34 @@ const Chat = () => {
         joinedRoomsRef.current.delete(room);
     };
 
+    // Xử lý private chat dựa vào room id từ server (đã lưu ở activeChats)
+    const handleUserClick = (targetUser) => {
+        if (targetUser === myname) return;
+        let existingRoom = null;
+        for (const [roomId, chat] of Object.entries(activeChats)) {
+            if (!chat.isGroup && chat.partner === targetUser) {
+                existingRoom = roomId;
+                break;
+            }
+        }
+        if (existingRoom) {
+            if (currentRoom && currentRoom !== existingRoom) leaveRoom(currentRoom);
+            setCurrentRoom(existingRoom);
+            joinRoom(existingRoom);
+            setMessages([]);
+            setActiveChats((prev) => {
+                const updated = { ...prev };
+                if (updated[existingRoom]) updated[existingRoom].unread = 0;
+                localStorage.setItem("activeChats", JSON.stringify(updated));
+                return updated;
+            });
+            localStorage.setItem("currentRoom", existingRoom);
+            alert("Chat với " + targetUser);
+        } else {
+            alert("Không có cuộc trò chuyện hiện tại với " + targetUser + ". Vui lòng gửi lời mời kết bạn trước.");
+        }
+    };
+
     const handleRoomClick = (room) => {
         if (currentRoom !== room) {
             if (currentRoom) leaveRoom(currentRoom);
@@ -395,23 +449,6 @@ const Chat = () => {
             });
             localStorage.setItem("currentRoom", room);
         }
-    };
-
-    const handleUserClick = (targetUser) => {
-        if (targetUser === myname) return;
-        const room = [myname, targetUser].sort().join("-");
-        if (currentRoom && currentRoom !== room) leaveRoom(currentRoom);
-        setCurrentRoom(room);
-        joinRoom(room);
-        setMessages([]);
-        setActiveChats((prev) => {
-            const updated = { ...prev };
-            updated[room] = { partner: targetUser, unread: 0 };
-            localStorage.setItem("activeChats", JSON.stringify(updated));
-            return updated;
-        });
-        localStorage.setItem("currentRoom", room);
-        alert("Chat với " + targetUser);
     };
 
     const handleCreateGroup = () => {
@@ -483,6 +520,7 @@ const Chat = () => {
         acc.username.toLowerCase().includes(searchFilter.toLowerCase())
     );
 
+    // Hỗ trợ gửi tin nhắn, có thể nhận cả object message (ví dụ, cho file đính kèm, ...)
     const sendMessageHandler = (msg) => {
         if (!currentRoom) {
             alert("Vui lòng chọn user hoặc cuộc chat để chat.");
@@ -516,20 +554,6 @@ const Chat = () => {
                 <div className="col-11">
                     {activeTab === "chat" ? (
                         <div className="row">
-                            {/* <UserPanel
-                                searchFilter={searchFilter}
-                                setSearchFilter={setSearchFilter}
-                                filteredAccounts={filteredAccounts}
-                                handleUserClick={handleUserClick}
-                                myname={myname}
-                                setFriendModalVisible={setFriendModalVisible}
-                            />
-                            <ChatList
-                                activeChats={activeChats}
-                                handleRoomClick={handleRoomClick}
-                                onOpenGroupModal={() => setGroupModalVisible(true)}
-                                activeRoom={currentRoom}
-                            /> */}
                             <LeftPanel
                                 searchFilter={searchFilter}
                                 setSearchFilter={setSearchFilter}
