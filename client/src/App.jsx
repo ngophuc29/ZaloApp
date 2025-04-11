@@ -4,7 +4,7 @@ import { publicRoutes } from "@/routes/routes";
 import "./App.css";
 import "./assets/css/style.css"
 import '@fortawesome/fontawesome-free/css/all.min.css';
-
+import { ToastContainer, toast } from 'react-toastify';
 function App() {
   return (
     <Router>
@@ -26,6 +26,19 @@ function App() {
             );
           })}
         </Routes>
+        <ToastContainer
+          position="top-right"
+          autoClose={5000}
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick={false}
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="light"
+          
+        />
       </div>
     </Router>
   );

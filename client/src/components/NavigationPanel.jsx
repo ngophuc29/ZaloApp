@@ -1,15 +1,18 @@
+// NavigationPanel.js
 import React, { useState, useEffect } from "react";
 import {
     FaComments, FaUserFriends, FaSignOutAlt, FaCloudUploadAlt,
     FaCloud, FaMobileAlt, FaBriefcase, FaCog
 } from "react-icons/fa";
 import {
-    Avatar, Button, Popover, Tooltip, Modal, Input, DatePicker, message
+    Avatar, Button, Popover, Tooltip, Modal, Input, message
 } from 'antd';
 import moment from "moment";
-
+import axios from "axios";
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 const NavigationPanel = ({ activeTab, setActiveTab, navigate, myname }) => {
-    const [isModalVisible, setIsModalVisible] = useState(false);
+    const [isModalVisible, setIsModalVisible] = useState(false); // Modal thông tin cá nhân
     const [isEditMode, setIsEditMode] = useState(false);
     const [userInfo, setUserInfo] = useState({});
     const [popoverVisible, setPopoverVisible] = useState(false);
@@ -17,6 +20,14 @@ const NavigationPanel = ({ activeTab, setActiveTab, navigate, myname }) => {
         fullname: "",
         birthday: "",
         image: ""
+    });
+
+    // State cho modal đổi mật khẩu
+    const [isChangePasswordVisible, setIsChangePasswordVisible] = useState(false);
+    const [passwordData, setPasswordData] = useState({
+        oldPassword: "",
+        newPassword: "",
+        confirmPassword: ""
     });
 
     useEffect(() => {
@@ -68,10 +79,17 @@ const NavigationPanel = ({ activeTab, setActiveTab, navigate, myname }) => {
         },
     ];
 
+    // Hiển thị modal thông tin cá nhân
     const showModal = () => {
         setIsModalVisible(true);
         setPopoverVisible(false);
         setIsEditMode(false);
+    };
+
+    // Hiển thị modal đổi mật khẩu
+    const showChangePasswordModal = () => {
+        setIsChangePasswordVisible(true);
+        setPopoverVisible(false);
     };
 
     const handleCancel = () => {
@@ -79,30 +97,44 @@ const NavigationPanel = ({ activeTab, setActiveTab, navigate, myname }) => {
         setIsEditMode(false);
     };
 
-    const handleImageChange = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+     
 
-        const reader = new FileReader();
-        reader.onload = async (event) => {
-            const img = new Image();
-            img.src = event.target.result;
+    // Xử lý đổi mật khẩu
+    const handleChangePassword = async () => {
+        const { oldPassword, newPassword, confirmPassword } = passwordData;
 
-            img.onload = async () => {
-                const canvas = document.createElement("canvas");
-                canvas.width = img.width;
-                canvas.height = img.height;
+        if (!oldPassword || !newPassword || !confirmPassword) {
+            message.error("Vui lòng nhập đầy đủ thông tin");
+            return;
+        }
 
-                const ctx = canvas.getContext("2d");
-                ctx.drawImage(img, 0, 0);
+        if (newPassword !== confirmPassword) {
+            message.error("Mật khẩu mới không trùng khớp");
+            return;
+        }
 
-                const compressedBase64 = canvas.toDataURL("image/jpeg", 0.1); // chất lượng thấp nhất
-                setFormData({ ...formData, image: compressedBase64 });
-            };
-        };
-        reader.readAsDataURL(file);
+        try {
+            const res = await axios.put(`http://localhost:5000/api/accounts/change-password/${userInfo.username}`, {
+                oldPassword,
+                newPassword,
+            });
+    console.log(res.data);
+
+            if (res.status === 200 && res.data.message === "Password updated") {
+                toast.success("Đổi mật khẩu thành công!");
+                setIsChangePasswordVisible(false);
+                setPasswordData({ oldPassword: "", newPassword: "", confirmPassword: "" });
+            } else {
+                message.error(res.data.message || "Đổi mật khẩu thất bại");
+            }
+        } catch (error) {
+            console.error("Lỗi đổi mật khẩu:", error);
+            message.error(error.response?.data?.message || "Lỗi khi đổi mật khẩu");
+        }
     };
 
+
+    // Save thông tin người dùng
     const handleSave = async () => {
         try {
             const res = await fetch(`http://localhost:5000/api/accounts/${userInfo.username}`, {
@@ -119,13 +151,13 @@ const NavigationPanel = ({ activeTab, setActiveTab, navigate, myname }) => {
 
             const result = await res.json();
             if (result.message === "Update successful") {
-                message.success("Cập nhật thành công!");
+                toast.success("Cập nhật thành công!");
 
-                // 👉 Đóng modal & tắt edit mode ngay
+                // Đóng modal & tắt edit mode ngay
                 setIsEditMode(false);
                 setIsModalVisible(false);
 
-                // 👉 Gọi lại API để cập nhật dữ liệu
+                // Cập nhật lại dữ liệu
                 const updatedRes = await fetch(`http://localhost:5000/api/accounts/username/${userInfo.username}`);
                 const updatedData = await updatedRes.json();
 
@@ -134,14 +166,12 @@ const NavigationPanel = ({ activeTab, setActiveTab, navigate, myname }) => {
                     localStorage.setItem("user", JSON.stringify(updatedData));
                 }
             } else {
-                message.error("Cập nhật thất bại.");
+                toast.error("Cập nhật thất bại.");
             }
         } catch (error) {
-            message.error("Lỗi khi cập nhật thông tin.");
+            toast.error("Lỗi khi cập nhật thông tin.");
         }
     };
-
-
 
     return (
         <>
@@ -151,6 +181,7 @@ const NavigationPanel = ({ activeTab, setActiveTab, navigate, myname }) => {
                         content={
                             <div style={{ textAlign: "center" }}>
                                 <Button type="link" onClick={showModal}>Thông tin cá nhân</Button><br />
+                                <Button type="link" onClick={showChangePasswordModal}>Đổi mật khẩu</Button><br />
                                 <Button type="link" danger onClick={() => {
                                     localStorage.clear();
                                     navigate("/login");
@@ -194,9 +225,9 @@ const NavigationPanel = ({ activeTab, setActiveTab, navigate, myname }) => {
                 ))}
             </div>
 
+            {/* Modal thông tin người dùng */}
             <Modal
                 title="Thông tin người dùng"
-                // open={isModalVisible}
                 visible={isModalVisible}
                 onCancel={handleCancel}
                 footer={isEditMode ? (
@@ -228,7 +259,15 @@ const NavigationPanel = ({ activeTab, setActiveTab, navigate, myname }) => {
                         <input
                             type="file"
                             accept="image/*"
-                            onChange={handleImageChange}
+                            onChange={(e) => {
+                                const file = e.target.files[0];
+                                if (!file) return;
+                                const reader = new FileReader();
+                                reader.onload = (event) => {
+                                    setFormData({ ...formData, image: event.target.result });
+                                };
+                                reader.readAsDataURL(file);
+                            }}
                         />
                         {formData.image && <Avatar size={64} src={formData.image} className="mt-2" />}
                     </>
@@ -242,7 +281,36 @@ const NavigationPanel = ({ activeTab, setActiveTab, navigate, myname }) => {
                         <Avatar size={64} src={userInfo.image || "/your-avatar.jpg"} />
                     </>
                 )}
+            </Modal>
 
+            {/* Modal Đổi mật khẩu */}
+            <Modal
+                title="Đổi mật khẩu"
+                visible={isChangePasswordVisible}
+                onCancel={() => setIsChangePasswordVisible(false)}
+                footer={[
+                    <Button key="cancel" onClick={() => setIsChangePasswordVisible(false)}>Hủy</Button>,
+                    <Button key="submit" type="primary" onClick={handleChangePassword}>Lưu</Button>
+                ]}
+            >
+                <label>Mật khẩu cũ:</label>
+                <Input.Password
+                    placeholder="Nhập mật khẩu cũ"
+                    value={passwordData.oldPassword}
+                    onChange={(e) => setPasswordData({ ...passwordData, oldPassword: e.target.value })}
+                />
+                <label className="mt-2">Mật khẩu mới:</label>
+                <Input.Password
+                    placeholder="Nhập mật khẩu mới"
+                    value={passwordData.newPassword}
+                    onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                />
+                <label className="mt-2">Xác nhận mật khẩu mới:</label>
+                <Input.Password
+                    placeholder="Xác nhận mật khẩu mới"
+                    value={passwordData.confirmPassword}
+                    onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                />
             </Modal>
         </>
     );
