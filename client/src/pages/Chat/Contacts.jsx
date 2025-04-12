@@ -7,7 +7,9 @@ import {
     FaUserPlus,
     FaEnvelopeOpenText,
 } from "react-icons/fa";
+import { toast, ToastContainer } from "react-toastify";
 
+// Khởi tạo socket (nếu bạn dùng singleton, hãy đảm bảo đây là instance chung)
 const socket = io("http://localhost:5000");
 
 const menuItems = [
@@ -25,6 +27,7 @@ const Contacts = () => {
 
     const myUsername = localStorage.getItem("username") || "Guest";
 
+    // useEffect ban đầu để đăng ký các sự kiện socket và lấy dữ liệu khởi tạo
     useEffect(() => {
         socket.emit("getFriends", myUsername);
         socket.emit("getFriendRequests", myUsername);
@@ -33,13 +36,13 @@ const Contacts = () => {
         socket.on("friendRequests", (data) => setFriendRequests(data));
 
         socket.on("respondFriendRequestResult", (data) => {
-            alert(data.message);
+            toast.info(data.message);
             socket.emit("getFriendRequests", myUsername);
             socket.emit("getFriends", myUsername);
         });
 
         socket.on("cancelFriendResult", (data) => {
-            alert(data.message);
+            toast.info(data.message);
             socket.emit("getFriends", myUsername);
         });
 
@@ -51,8 +54,22 @@ const Contacts = () => {
         };
     }, [myUsername]);
 
+    // useEffect để refresh dữ liệu khi activeMenu thay đổi
+    useEffect(() => {
+        if (activeMenu === "Danh sách bạn bè") {
+            socket.emit("getFriends", myUsername);
+        } else if (activeMenu === "Lời mời kết bạn") {
+            socket.emit("getFriendRequests", myUsername);
+        }
+        // Có thể thêm các emit khác nếu có các tab khác cần refresh data
+    }, [activeMenu, myUsername]);
+
     const handleRemoveFriend = (friendUsername) => {
-        if (window.confirm(`Bạn có chắc muốn xóa ${friendUsername} khỏi danh sách bạn bè không?`)) {
+        if (
+            window.confirm(
+                `Bạn có chắc muốn xóa ${friendUsername} khỏi danh sách bạn bè không?`
+            )
+        ) {
             socket.emit("cancelFriend", { myUsername, friendUsername });
         }
     };
@@ -61,10 +78,14 @@ const Contacts = () => {
         socket.emit("respondFriendRequest", { requestId, action });
     };
 
+    // Tính toán danh sách bạn bè theo bộ lọc tìm kiếm
     const filteredFriends = friends
-        .filter((friend) => friend.toLowerCase().includes(searchTerm.toLowerCase()))
+        .filter((friend) =>
+            friend.toLowerCase().includes(searchTerm.toLowerCase())
+        )
         .sort((a, b) => a.localeCompare(b));
 
+    // Nhóm bạn bè theo chữ cái đầu
     const groupedFriends = filteredFriends.reduce((acc, friend) => {
         const firstLetter = friend.charAt(0).toUpperCase();
         if (!acc[firstLetter]) acc[firstLetter] = [];
@@ -75,9 +96,24 @@ const Contacts = () => {
     const sortedLetters = Object.keys(groupedFriends).sort();
 
     return (
-        <div style={{ display: "flex", height: "100vh", fontFamily: "Segoe UI, sans-serif" }}>
+        <div
+            style={{
+                display: "flex",
+                height: "100vh",
+                fontFamily: "Segoe UI, sans-serif",
+            }}
+        >
+            {/* Toast container hiển thị thông báo */}
+            <ToastContainer />
+
             {/* Sidebar */}
-            <aside style={{ width: "300px", background: "#f1f4f9", borderRight: "1px solid #ddd" }}>
+            <aside
+                style={{
+                    width: "300px",
+                    background: "#f1f4f9",
+                    borderRight: "1px solid #ddd",
+                }}
+            >
                 <div style={{ padding: "20px" }}>
                     <div
                         style={{
@@ -106,7 +142,13 @@ const Contacts = () => {
                         />
                     </div>
 
-                    <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
+                    <div
+                        style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "5px",
+                        }}
+                    >
                         {menuItems.map((item) => (
                             <button
                                 key={item.label}
@@ -120,9 +162,18 @@ const Contacts = () => {
                                     border: "none",
                                     fontSize: "14px",
                                     cursor: "pointer",
-                                    background: activeMenu === item.label ? "#e6f4ff" : "transparent",
-                                    color: activeMenu === item.label ? "#007aff" : "#333",
-                                    fontWeight: activeMenu === item.label ? "600" : "400",
+                                    background:
+                                        activeMenu === item.label
+                                            ? "#e6f4ff"
+                                            : "transparent",
+                                    color:
+                                        activeMenu === item.label
+                                            ? "#007aff"
+                                            : "#333",
+                                    fontWeight:
+                                        activeMenu === item.label
+                                            ? "600"
+                                            : "400",
                                 }}
                             >
                                 {item.icon} {item.label}
@@ -145,7 +196,9 @@ const Contacts = () => {
                             }}
                         >
                             <h2 style={{ margin: 0 }}>Danh sách bạn bè</h2>
-                            <span style={{ color: "#555" }}>Tổng: {filteredFriends.length}</span>
+                            <span style={{ color: "#555" }}>
+                                Tổng: {filteredFriends.length}
+                            </span>
                         </div>
 
                         <div
@@ -179,7 +232,9 @@ const Contacts = () => {
                                                 borderBottom: "1px solid #f3f3f3",
                                             }}
                                         >
-                                            <span style={{ fontWeight: "500", color: "#333" }}>{friend}</span>
+                                            <span style={{ fontWeight: "500", color: "#333" }}>
+                                                {friend}
+                                            </span>
                                             <button
                                                 onClick={() => handleRemoveFriend(friend)}
                                                 style={{
@@ -214,7 +269,9 @@ const Contacts = () => {
                             }}
                         >
                             {friendRequests.length === 0 ? (
-                                <p style={{ fontStyle: "italic", color: "#888" }}>Không có lời mời kết bạn.</p>
+                                <p style={{ fontStyle: "italic", color: "#888" }}>
+                                    Không có lời mời kết bạn.
+                                </p>
                             ) : (
                                 friendRequests.map((req) => (
                                     <div
@@ -231,9 +288,17 @@ const Contacts = () => {
                                         <span style={{ fontWeight: "500", color: "#444" }}>
                                             Từ: {req.from}
                                         </span>
-                                        <div style={{ marginTop: "10px", display: "flex", gap: "10px" }}>
+                                        <div
+                                            style={{
+                                                marginTop: "10px",
+                                                display: "flex",
+                                                gap: "10px",
+                                            }}
+                                        >
                                             <button
-                                                onClick={() => handleRespond(req._id || req.id, "accepted")}
+                                                onClick={() =>
+                                                    handleRespond(req._id || req.id, "accepted")
+                                                }
                                                 style={{
                                                     flex: 1,
                                                     background: "#28a745",
@@ -247,7 +312,9 @@ const Contacts = () => {
                                                 Chấp nhận
                                             </button>
                                             <button
-                                                onClick={() => handleRespond(req._id || req.id, "rejected")}
+                                                onClick={() =>
+                                                    handleRespond(req._id || req.id, "rejected")
+                                                }
                                                 style={{
                                                     flex: 1,
                                                     background: "#dc3545",
