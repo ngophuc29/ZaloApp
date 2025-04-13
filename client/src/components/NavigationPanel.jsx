@@ -1,17 +1,22 @@
 // NavigationPanel.js
 import React, { useState, useEffect } from "react";
 import {
-    FaComments, FaUserFriends, FaSignOutAlt, FaCloudUploadAlt,
-    FaCloud, FaMobileAlt, FaBriefcase, FaCog
+    FaComments,
+    FaUserFriends,
+    FaSignOutAlt,
+    FaCloudUploadAlt,
+    FaCloud,
+    FaMobileAlt,
+    FaBriefcase,
+    FaCog
 } from "react-icons/fa";
-import {
-    Avatar, Button, Popover, Tooltip, Modal, Input, message
-} from 'antd';
+import { Avatar, Button, Popover, Tooltip, Modal, Input, message } from 'antd';
 import moment from "moment";
 import axios from "axios";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-const NavigationPanel = ({ activeTab, setActiveTab, navigate, myname }) => {
+
+const NavigationPanel = ({ activeTab, setActiveTab, navigate, myname, refreshContent }) => {
     const [isModalVisible, setIsModalVisible] = useState(false); // Modal thông tin cá nhân
     const [isEditMode, setIsEditMode] = useState(false);
     const [userInfo, setUserInfo] = useState({});
@@ -59,14 +64,34 @@ const NavigationPanel = ({ activeTab, setActiveTab, navigate, myname }) => {
         }
     }, [isModalVisible, userInfo]);
 
+    // Sửa hàm xử lý click của navItem: Sau khi chuyển tab, sẽ refresh nội dung.
+    const handleNavItemClick = (item) => {
+        // Với các navItem có action, gọi luôn action của nó, nếu không có thì tự chuyển tab.
+        if (item.action) {
+            item.action();
+        } else {
+            setActiveTab(item.key);
+        }
+        // Nếu không phải trường hợp logout thì refresh content.
+        if (item.key !== "logout") {
+            // --- Cách 1: Nếu component cha có quản lý refreshKey, bạn gọi hàm trigger refresh truyền từ props
+            if (refreshContent) {
+                refreshContent();
+            } else {
+                // --- Cách 2: Reload toàn trang (không khuyến khích nếu không thực sự cần thiết)
+                // window.location.reload();
+            }
+        }
+    };
+
     const navItems = [
         { key: "chat", icon: <FaComments />, label: "Tin nhắn", action: () => setActiveTab("chat") },
         { key: "contacts", icon: <FaUserFriends />, label: "Danh bạ", action: () => setActiveTab("contacts") },
         { key: "upload", icon: <FaCloudUploadAlt />, label: "Tải lên" },
-        { key: "cloud", icon: <FaCloud />, label: "Cloud" },
-        { key: "mobile", icon: <FaMobileAlt />, label: "Mobile" },
-        { key: "work", icon: <FaBriefcase />, label: "Công việc" },
-        { key: "settings", icon: <FaCog />, label: "Cài đặt" },
+        { key: "cloud", icon: <FaCloud />, label: "Cloud", action: () => setActiveTab("cloud") },
+        { key: "mobile", icon: <FaMobileAlt />, label: "Mobile", action: () => setActiveTab("mobile") },
+        { key: "work", icon: <FaBriefcase />, label: "Công việc", action: () => setActiveTab("work") },
+        { key: "settings", icon: <FaCog />, label: "Cài đặt", action: () => setActiveTab("settings") },
         {
             key: "logout",
             icon: <FaSignOutAlt />,
@@ -97,8 +122,6 @@ const NavigationPanel = ({ activeTab, setActiveTab, navigate, myname }) => {
         setIsEditMode(false);
     };
 
-     
-
     // Xử lý đổi mật khẩu
     const handleChangePassword = async () => {
         const { oldPassword, newPassword, confirmPassword } = passwordData;
@@ -118,7 +141,7 @@ const NavigationPanel = ({ activeTab, setActiveTab, navigate, myname }) => {
                 oldPassword,
                 newPassword,
             });
-    console.log(res.data);
+            console.log(res.data);
 
             if (res.status === 200 && res.data.message === "Password updated") {
                 toast.success("Đổi mật khẩu thành công!");
@@ -132,7 +155,6 @@ const NavigationPanel = ({ activeTab, setActiveTab, navigate, myname }) => {
             message.error(error.response?.data?.message || "Lỗi khi đổi mật khẩu");
         }
     };
-
 
     // Save thông tin người dùng
     const handleSave = async () => {
@@ -209,7 +231,7 @@ const NavigationPanel = ({ activeTab, setActiveTab, navigate, myname }) => {
                         {item.section && <hr className="text-white w-75 my-3" />}
                         <Tooltip title={item.label} placement="right">
                             <div
-                                onClick={item.action}
+                                onClick={() => handleNavItemClick(item)}
                                 style={{
                                     backgroundColor: activeTab === item.key ? "#004bb5" : "transparent",
                                     borderRadius: "10px",
