@@ -24,6 +24,7 @@ const FriendModal = ({
         await handleAddFriend(username);
         setLoadingFriend(null);
         // setRequestedFriends((prev) => [...prev, username]);
+        setFriendModalVisible(false)
     };
 
     // Khi bấm nút "Thu hồi": gọi hàm thu hồi lời mời và loại bỏ username khỏi danh sách lời mời đã gửi
