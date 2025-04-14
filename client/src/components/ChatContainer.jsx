@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from "react";
 import EmojiPicker from "emoji-picker-react";
 import ImageUploader from "./ImageUploader"; // Component upload ảnh
 import Peer from "simple-peer/simplepeer.min.js";
+import './video.css'
+import FileUploader from "./FileUploader";
 const ChatContainer = ({
     socket,
     currentRoom,
@@ -22,7 +24,8 @@ const ChatContainer = ({
 }) => {
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const [showImageUploader, setShowImageUploader] = useState(false);
-
+    // Thêm state mới
+    const [showFileUploader, setShowFileUploader] = useState(false);
 
     // State quản lý cuộc gọi
     const [calling, setCalling] = useState(false);
@@ -353,65 +356,7 @@ const ChatContainer = ({
         return () => clearInterval(checkStream);
     }, [callAccepted, peer, remoteStream]);
 
-    // Chấp nhận cuộc gọi
-    // const answerCall = async () => {
-    //     try {
-    //         const stream = await initLocalStream();
-    //         setCallAccepted(true);
-
-    //         const p = new Peer({
-    //             initiator: false,
-    //             trickle: false,
-    //             stream
-    //         });
-
-    //         // THÊM PHẦN NÀY ĐỂ ĐẢM BẢO NHẬN REMOTE STREAM
-    //         p.on('stream', (remoteStream) => {
-    //             // KIỂM TRA TRÁNH CẬP NHẬT LIÊN TỤC
-    //             if (!remoteVideoRef.current.srcObject ||
-    //                 remoteVideoRef.current.srcObject.id !== remoteStream.id) {
-    //                 setRemoteStream(remoteStream);
-
-    //                 // FIX: Đảm bảo video element được cập nhật
-    //                 setTimeout(() => {
-    //                     if (remoteVideoRef.current && !remoteVideoRef.current.srcObject) {
-    //                         remoteVideoRef.current.srcObject = remoteStream;
-    //                     }
-    //                 }, 100);
-    //             }
-    //         });
-
-    //         p.on("signal", (signalData) => {
-    //             socket.emit("acceptCall", {
-    //                 to: incomingCall.from,
-    //                 signal: signalData
-    //             });
-    //         });
-
-    //         p.on("error", (err) => {
-    //             console.error("Peer error:", err);
-    //             cleanupCall();
-    //             alert(`Lỗi kết nối: ${err.message}`);
-    //         });
-
-    //         p.signal(incomingCall.signal);
-    //         setPeer(p);
-    //         setIncomingCall(null);
-
-    //         // THÊM TIMEOUT DỰ PHÒNG
-    //         setTimeout(() => {
-    //             if (!remoteStream && peer) {
-    //                 peer.emit('stream', stream); // Fallback
-    //             }
-    //         }, 2000);
-
-    //     } catch (err) {
-    //         console.error("Call acceptance failed:", err);
-    //         cleanupCall();
-    //         socket.emit("rejectCall", { to: incomingCall.from });
-    //         setIncomingCall(null);
-    //     }
-    // };
+     
     const answerCall = async () => {
         try {
             const stream = await initLocalStream();
@@ -531,10 +476,29 @@ const ChatContainer = ({
         return user?.image || "/default-avatar.jpg";
     };
 
-
+    const handleFileUploadSuccess = (fileData) => {
+        const fileMessage = {
+            id: Date.now(),
+            name: myname,
+            message: "", // Có thể thêm text nếu cần
+            room: currentRoom,
+            fileUrl: fileData.url,
+            fileType: fileData.type,
+            fileName: fileData.name,
+            fileSize: fileData.size,
+            filePublicId: fileData.publicId,
+            resourceType: fileData.resourceType,
+            ...(fileData.width && { width: fileData.width }),
+            ...(fileData.height && { height: fileData.height }),
+            ...(fileData.duration && { duration: fileData.duration }),
+            ...(fileData.thumbnail && { thumbnailUrl: fileData.thumbnail })
+        };
+        sendMessage(fileMessage);
+        setShowFileUploader(false);
+    };
     
     return (
-        <div className="col-9" style={{ padding: "10px", position: "relative" }}>
+        <div className="col-9" style={{ padding: "10px", position: "relative",height: "100vh" }}>
             <h3 style={{ textAlign: 'left' }}>Chat Room: {currentRoom}</h3>
             <button className="btn btn-secondary mb-2" onClick={onGetGroupDetails}>
                 Group Details
@@ -552,7 +516,7 @@ const ChatContainer = ({
                 id="ul_message"
                 ref={messageContainerRef}
                 className="list-group mb-2"
-                style={{ maxHeight: "50vh", overflowY: "auto" }}
+                style={{ maxHeight: "83vh", overflowY: "auto" }}
             >
                 {messages.map((msg) => {
                     const isMine = msg.name === myname;
@@ -659,21 +623,104 @@ const ChatContainer = ({
 
                                 {/* Message content */}
                                 {msg.message && <p style={{ margin: 0 }}>{msg.message}</p>}
-                                {msg.fileUrl && (
+                                {/* {msg.fileUrl && (
                                     <div style={{ marginTop: "5px" }}>
-                                        {/\.(jpg|jpeg|png|gif)$/i.test(msg.fileUrl) ? (
+                                        {msg.fileType === 'image' ? (
                                             <img
                                                 src={msg.fileUrl}
                                                 alt="uploaded"
                                                 style={{ maxWidth: "200px", borderRadius: "5px" }}
                                             />
+                                        ) : msg.fileType === 'video' ? (
+                                            <div>
+                                                <video
+                                                    controls
+                                                    style={{ maxWidth: "200px", borderRadius: "5px" }}
+                                                    poster={msg.thumbnailUrl}
+                                                >
+                                                    <source src={msg.fileUrl} type="video/mp4" />
+                                                    Trình duyệt không hỗ trợ video
+                                                </video>
+                                            </div>
                                         ) : (
-                                            <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer">
-                                                Download File
+                                            <a
+                                                href={msg.fileUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="btn btn-sm btn-outline-primary"
+                                            >
+                                                <i className="fas fa-download"></i> {msg.fileName || 'Tải xuống'}
+                                            </a>
+                                        )}
+                                    </div>
+                                )} */}
+                                {/* {msg.fileUrl && (
+                                    <div style={{ marginTop: "5px" }}>
+                                        {(msg.fileType === 'image' || /\.(jpeg|jpg|png|gif|webp)$/i.test(msg.fileUrl)) ? (
+                                            <img
+                                                src={msg.fileUrl}
+                                                alt="uploaded"
+                                                style={{ maxWidth: "200px", borderRadius: "5px" }}
+                                            />
+                                        ) : msg.fileType === 'video' ? (
+                                            <div>
+                                                <video
+                                                    controls
+                                                    style={{ maxWidth: "200px", borderRadius: "5px" }}
+                                                    poster={msg.thumbnailUrl}
+                                                >
+                                                    <source src={msg.fileUrl} type="video/mp4" />
+                                                    Trình duyệt không hỗ trợ video
+                                                </video>
+                                            </div>
+                                        ) : (
+                                            <a
+                                                href={msg.fileUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="btn btn-sm btn-outline-primary"
+                                            >
+                                                <i className="fas fa-download"></i> {msg.fileName || 'Tải xuống'}
+                                            </a>
+                                        )}
+                                    </div>
+                                )} */}
+                                {msg.fileUrl && (
+                                    <div style={{ marginTop: "5px" }}>
+                                        {(msg.fileType === 'image' || /\.(jpeg|jpg|png|gif|webp)$/i.test(msg.fileUrl)) ? (
+                                            <img
+                                                src={msg.fileUrl}
+                                                alt="uploaded"
+                                                style={{ maxWidth: "200px", borderRadius: "5px" }}
+                                            />
+                                        ) : msg.fileType === 'video' || /\.(mp4|webm|ogg)$/i.test(msg.fileUrl) ? (
+                                            <video
+                                                controls
+                                                style={{ maxWidth: "200px", borderRadius: "5px" }}
+                                                poster={msg.thumbnailUrl}
+                                            >
+                                                <source src={msg.fileUrl} />
+                                                Trình duyệt không hỗ trợ video
+                                            </video>
+                                        ) : /\.(pdf|doc|docx|ppt|pptx|xls|xlsx)$/i.test(msg.fileUrl) ? (
+                                            <iframe
+                                                src={`https://docs.google.com/gview?url=${encodeURIComponent(msg.fileUrl)}&embedded=true`}
+                                                style={{ width: "100%", height: "500px", border: "none", borderRadius: "5px" }}
+                                                title="Document Viewer"
+                                            />
+                                        ) : (
+                                            <a
+                                                href={msg.fileUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="btn btn-sm btn-outline-primary"
+                                            >
+                                                <i className="fas fa-download"></i> {msg.fileName || 'Tải xuống'}
                                             </a>
                                         )}
                                     </div>
                                 )}
+
                                 {msg.reaction && (
                                     <span
                                         style={{
@@ -753,39 +800,70 @@ const ChatContainer = ({
                 })}
             </ul>
 
-            <div className="input-group">
-                <input
-                    type="text"
-                    id="message"
-                    className="form-control"
-                    placeholder="Enter your message"
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    onKeyDown={onInputKeyDown}
-                    ref={inputRef}
-                />
-                <button id="btn_send" className="btn btn-primary" onClick={handleSend}>
-                    Send
-                </button>
-                <button
-                    className="btn btn-secondary"
-                    onClick={() => setShowEmojiPicker((prev) => !prev)}
-                >
-                    Emoji
-                </button>
-                <button
-                    className="btn btn-secondary"
-                    onClick={() => setShowImageUploader((prev) => !prev)}
-                >
-                    Image
-                </button>
-                <button
-                    className="btn btn-warning"
-                    onClick={initiateCall}
-                    disabled={isLoadingMedia || calling || callAccepted}
-                >
-                    {isLoadingMedia ? "Đang chuẩn bị..." : "Gọi Video"}
-                </button>
+            <div className="chat-control-container">
+                {/* Row for action buttons */}
+                <div className="action-buttons">
+                    <button
+                        className="btn btn-secondary btn-action"
+                        onClick={() => setShowEmojiPicker((prev) => !prev)}
+                        title="Biểu tượng cảm xúc"
+                    >
+                        <i className="far fa-smile"></i> Emoji
+                    </button>
+
+                    <button
+                        className="btn btn-secondary btn-action"
+                        onClick={() => setShowFileUploader((prev) => !prev)}
+                        title="Gửi tệp"
+                    >
+                        <i className="fas fa-paperclip"></i> File
+                    </button>
+
+                    <button
+                        className={`btn btn-warning btn-action ${isLoadingMedia ? 'loading' : ''}`}
+                        onClick={initiateCall}
+                        disabled={isLoadingMedia || calling || callAccepted}
+                        title="Gọi video"
+                    >
+                        {isLoadingMedia ? (
+                            <span><i className="fas fa-spinner fa-spin"></i> Đang chuẩn bị...</span>
+                        ) : (
+                            <span><i className="fas fa-video"></i> Gọi Video</span>
+                        )}
+                    </button>
+                </div>
+
+                {/* Row for input and send */}
+                <div className="input-group message-input-group">
+                    <input
+                        type="text"
+                        id="message"
+                        className="form-control message-input"
+                        placeholder="Nhập tin nhắn của bạn..."
+                        value={message}
+                        onChange={(e) => setMessage(e.target.value)}
+                        onKeyDown={onInputKeyDown}
+                        ref={inputRef}
+                    />
+                    <button
+                        id="btn_send"
+                        className="btn btn-primary btn-send"
+                        onClick={handleSend}
+                        disabled={!message.trim()}
+                    >
+                        <i className="fas fa-paper-plane"></i> Gửi
+                    </button>
+                </div>
+
+                {/* File uploader popup */}
+                {showFileUploader && (
+                    <div className="file-uploader-popup">
+                        <FileUploader
+                            onUploadSuccess={handleFileUploadSuccess}
+                            fileTypes="image/*, video/*, .pdf, .doc, .docx, .xls, .xlsx, .ppt, .pptx"
+                        />
+                    </div>
+                )}
             </div>
             {showEmojiPicker && (
                 <div
