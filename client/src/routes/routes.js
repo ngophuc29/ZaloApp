@@ -9,7 +9,7 @@ import VerifyOtp from '../pages/authentication/VerifyOtp';
 import ResetPassword from '../pages/authentication/ResetPassword';
 import Chat from "../pages/Chat/Chat";
 const publicRoutes = [
-  { path: "/home", component: Home },
+  // { path: "/home", component: Home },
   { path: "/login", component: Login },
   { path: "/signup", component: Signup },
   { path: "/chat", component: Chat },

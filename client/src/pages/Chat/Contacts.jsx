@@ -28,6 +28,31 @@ const Contacts = () => {
     const myUsername = localStorage.getItem("username") || "Guest";
 
     // useEffect ban đầu để đăng ký các sự kiện socket và lấy dữ liệu khởi tạo
+    // useEffect(() => {
+    //     socket.emit("getFriends", myUsername);
+    //     socket.emit("getFriendRequests", myUsername);
+
+    //     socket.on("friendsList", (data) => setFriends(data));
+    //     socket.on("friendRequests", (data) => setFriendRequests(data));
+
+    //     socket.on("respondFriendRequestResult", (data) => {
+    //         toast.info(data.message);
+    //         socket.emit("getFriendRequests", myUsername);
+    //         socket.emit("getFriends", myUsername);
+    //     });
+
+    //     socket.on("cancelFriendResult", (data) => {
+    //         toast.info(data.message);
+    //         socket.emit("getFriends", myUsername);
+    //     });
+
+    //     return () => {
+    //         socket.off("friendsList");
+    //         socket.off("friendRequests");
+    //         socket.off("respondFriendRequestResult");
+    //         socket.off("cancelFriendResult");
+    //     };
+    // }, [myUsername]);
     useEffect(() => {
         socket.emit("getFriends", myUsername);
         socket.emit("getFriendRequests", myUsername);
@@ -46,14 +71,19 @@ const Contacts = () => {
             socket.emit("getFriends", myUsername);
         });
 
+        socket.on("friendRequestWithdrawn", (data) => {
+            toast.info(`${data.from} đã thu hồi lời mời kết bạn.`);
+            socket.emit("getFriendRequests", myUsername);
+        });
+
         return () => {
             socket.off("friendsList");
             socket.off("friendRequests");
             socket.off("respondFriendRequestResult");
             socket.off("cancelFriendResult");
+            socket.off("friendRequestWithdrawn");
         };
     }, [myUsername]);
-
     // useEffect để refresh dữ liệu khi activeMenu thay đổi
     useEffect(() => {
         if (activeMenu === "Danh sách bạn bè") {
