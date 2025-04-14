@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { Form, Input, Button, message, Row, Col, Card, Typography } from 'antd';
+import { Form, Input, Button, message, Row, Col, Card, Typography, DatePicker } from 'antd';
 import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import dayjs from 'dayjs';
+import { ToastContainer, toast } from 'react-toastify';
 
 const { Title } = Typography;
 
@@ -12,6 +14,8 @@ const Register2 = () => {
     const [form] = Form.useForm();
     const [image, setImage] = useState(null);
     const navigate = useNavigate();
+
+    const defaultAvatar = 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/User-avatar.svg/2048px-User-avatar.svg.png';
 
     const handleImageChange = (e) => {
         const file = e.target.files[0];
@@ -24,33 +28,62 @@ const Register2 = () => {
         }
     };
 
+    const isOldEnough = (birthday) => {
+        const today = dayjs();
+        const age = today.diff(dayjs(birthday), 'year');
+        return age >= 13;
+    };
+
     const onFinishStep2 = async (values) => {
         const { username, password, phone, birthday, fullname } = values;
 
+        if (!isOldEnough(birthday)) {
+            toast.error('Bạn phải từ 13 tuổi trở lên mới được đăng ký.');
+            return;
+        }
+
         setLoading(true);
         try {
-            const response = await axios.post(
-                `http://localhost:5000/api/accounts/register-step2`,
-                {
-                    username,
-                    password,
-                    phone,
-                    email,
-                    birthday,
-                    fullname,
-                    image,
-                }
-            );
+            const checkUsername = await axios.get(`http://localhost:5000/api/accounts/check-username`, {
+                params: { username },
+            });
+
+            if (checkUsername.data.exists) {
+                toast.error('Tên đăng nhập đã tồn tại. Vui lòng chọn tên khác.');
+                setLoading(false);
+                return;
+            }
+
+            const checkPhone = await axios.get(`http://localhost:5000/api/accounts/check-phone`, {
+                params: { phone },
+            });
+
+            if (checkPhone.data.exists) {
+                toast.error('Số điện thoại đã được sử dụng.');
+                setLoading(false);
+                return;
+            }
+
+            const response = await axios.post(`http://localhost:5000/api/accounts/register-step2`, {
+                username,
+                password,
+                phone,
+                email,
+                birthday,
+                fullname,
+                image: image || undefined,  // Không gửi ảnh nếu không có
+            });
 
             if (response.status === 201) {
-                message.success('Đăng ký thành công!');
+                toast.success('Đăng ký thành công!');
                 navigate('/login');
             }
         } catch (error) {
-            message.error(error.response?.data?.message || 'Lỗi server');
+            toast.error(error.response?.data?.message || 'Lỗi server');
         }
         setLoading(false);
     };
+
 
     return (
         <Row justify="center" align="middle" style={{ height: '100vh', background: '#f0f2f5' }}>
@@ -96,8 +129,12 @@ const Register2 = () => {
                             <Input placeholder="Số điện thoại" />
                         </Form.Item>
 
-                        <Form.Item name="birthday" label="Ngày sinh">
-                            <Input type="date" />
+                        <Form.Item
+                            name="birthday"
+                            label="Ngày sinh"
+                            rules={[{ required: true, message: 'Vui lòng chọn ngày sinh!' }]}
+                        >
+                            <DatePicker style={{ width: '100%' }} />
                         </Form.Item>
 
                         <Form.Item name="image" label="Hình ảnh" extra="Chọn ảnh đại diện">

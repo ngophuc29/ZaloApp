@@ -218,7 +218,7 @@ const NavigationPanel = ({ activeTab, setActiveTab, navigate, myname, refreshCon
                         placement="right"
                     >
                         <img
-                            src={userInfo.image || "/your-avatar.jpg"}
+                            src={userInfo.image || "https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/User-avatar.svg/2048px-User-avatar.svg.png"}
                             alt="Avatar"
                             className="rounded-circle"
                             style={{ width: "40px", height: "40px", objectFit: "cover", cursor: "pointer" }}
@@ -300,7 +300,7 @@ const NavigationPanel = ({ activeTab, setActiveTab, navigate, myname, refreshCon
                         <p><strong>Số điện thoại:</strong> {userInfo.phone || 'Không có thông tin'}</p>
                         <p><strong>Ngày sinh:</strong> {userInfo.birthday ? new Date(userInfo.birthday).toLocaleDateString('vi-VN') : 'Không có thông tin'}</p>
                         <p><strong>Avatar:</strong></p>
-                        <Avatar size={64} src={userInfo.image || "/your-avatar.jpg"} />
+                            <Avatar size={64} src={userInfo.image || "https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/User-avatar.svg/2048px-User-avatar.svg.png"} />
                     </>
                 )}
             </Modal>
