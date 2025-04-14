@@ -473,7 +473,7 @@ const ChatContainer = ({
 
     const getAvatarByName = (name) => {
         const user = userList.find((u) => u.username === name);
-        return user?.image || "/default-avatar.jpg";
+        return user?.image || "https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/User-avatar.svg/2048px-User-avatar.svg.png";
     };
 
     const handleFileUploadSuccess = (fileData) => {
@@ -795,6 +795,8 @@ const ChatContainer = ({
                                     )}
                                 </div>
                             )}
+                            
+
                         </li>
                     );
                 })}
