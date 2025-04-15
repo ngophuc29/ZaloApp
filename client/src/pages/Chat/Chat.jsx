@@ -303,6 +303,21 @@ const Chat = () => {
             localStorage.removeItem("chat_" + data.roomId);
         };
 
+
+        // Lắng nghe sự kiện userJoined từ server
+        socket.on("userJoined", (data) => {
+            console.log("User joined:", data.username);
+            // Cập nhật danh sách accounts nếu user mới chưa có
+            setAccounts((prev) => {
+                const exists = prev.find((acc) => acc.username === data.username);
+                if (!exists) {
+                    // Ví dụ bạn chỉ lưu username ở đây, nếu API trả về các trường khác thì cần cập nhật thêm
+                    return [...prev, { username: data.username }];
+                }
+                return prev;
+            });
+        });
+
         // --- Sự kiện realtime friendAccepted ---
         socket.on("friendAccepted", ({ friend, roomId }) => {
             setActiveChats((prev) => {
@@ -317,7 +332,7 @@ const Chat = () => {
             joinedRoomsRef.current.add(roomId);
             setCurrentRoom(roomId);
             localStorage.setItem("currentRoom", roomId);
-            alert(`Bạn đã kết bạn với ${friend} và cuộc trò chuyện mới đã được mở.`);
+            alert(`Bạn đã kết bạn với ${friend} `);
         });
 
         // --- Sự kiện realtime newFriendRequest cho người nhận ---
@@ -397,6 +412,9 @@ const Chat = () => {
             socket.off('sentFriendRequests');
             socket.off('friendRequestSent');
             socket.off('friendRequestWithdrawn');
+
+            // Off sự kiện mới đăng ký
+            socket.off("userJoined");
         };
     }, [groupDetailsVisible, myname]);
 
