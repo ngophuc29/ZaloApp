@@ -1,6 +1,6 @@
 // src/App.jsx
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import { useEffect, useState } from "react"; // thêm useEffect + useState
+import { useEffect, useState } from "react";
 import DefaultLayout from "@/layouts/DafaultLayout/DefaultLayout";
 import { publicRoutes } from "@/routes/routes";
 import Chat from "@/pages/Chat/Chat";
@@ -11,14 +11,17 @@ import { ToastContainer } from 'react-toastify';
 
 function App() {
   const [username, setUsername] = useState(null);
+  const [isLoading, setIsLoading] = useState(true); // Đợi kiểm tra localStorage
 
   useEffect(() => {
     const savedUsername = localStorage.getItem("username");
     if (savedUsername) {
       setUsername(savedUsername);
-      console.log("Username from localStorage:", savedUsername);
     }
+    setIsLoading(false); // Đã kiểm tra xong
   }, []);
+
+  if (isLoading) return null; // hoặc <LoadingSpinner /> nếu muốn
 
   return (
     <Router>
@@ -61,6 +64,7 @@ function App() {
           <Route path="*" element={<Navigate to="/login" />} />
         </Routes>
 
+        {/* Toast hiển thị thông báo */}
         <ToastContainer
           position="top-right"
           autoClose={5000}
