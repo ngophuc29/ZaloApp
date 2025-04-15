@@ -27,9 +27,18 @@ const Contacts = () => {
     const [activeMenu, setActiveMenu] = useState("Danh sách bạn bè");
     // Thêm loading state
     const [isLoading, setIsLoading] = useState(false);
+    const [userList, setUserList] = useState([]); // State lưu thông tin người dùng
     const myUsername = localStorage.getItem("username") || "Guest";
 
     useEffect(() => {
+        // Fetch danh sách người dùng
+        fetch("http://localhost:5000/api/accounts")
+            .then((res) => res.json())
+            .then((data) => {
+                setUserList(data);
+            })
+            .catch((err) => console.error("Error fetching accounts:", err));
+
         // Lấy dữ liệu ban đầu từ server
         socket.emit("getFriends", myUsername);
         socket.emit("getFriendRequests", myUsername);
@@ -258,36 +267,51 @@ const Contacts = () => {
                                     >
                                         {letter}
                                     </h4>
-                                    {groupedFriends[letter].map((friend, index) => (
-                                        <div
-                                            key={index}
-                                            style={{
-                                                display: "flex",
-                                                justifyContent: "space-between",
-                                                alignItems: "center",
-                                                padding: "8px 0",
-                                                borderBottom: "1px solid #f3f3f3",
-                                            }}
-                                        >
-                                            <span style={{ fontWeight: "500", color: "#333" }}>
-                                                {friend}
-                                            </span>
-                                            <button
-                                                onClick={() => handleRemoveFriend(friend)}
+                                    {groupedFriends[letter].map((friend, index) => {
+                                        const friendInfo = userList.find(u => u.username === friend);
+                                        return (
+                                            <div
+                                                key={index}
                                                 style={{
-                                                    background: "#f44336",
-                                                    color: "#fff",
-                                                    border: "none",
-                                                    padding: "6px 12px",
-                                                    borderRadius: "6px",
-                                                    fontSize: "12px",
-                                                    cursor: "pointer",
+                                                    display: "flex",
+                                                    justifyContent: "space-between",
+                                                    alignItems: "center",
+                                                    padding: "8px 0",
+                                                    borderBottom: "1px solid #f3f3f3",
                                                 }}
                                             >
-                                                Xóa bạn
-                                            </button>
-                                        </div>
-                                    ))}
+                                                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                                                    <img
+                                                        src={friendInfo?.image || "https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/User-avatar.svg/2048px-User-avatar.svg.png"}
+                                                        alt={friend}
+                                                        style={{
+                                                            width: "40px",
+                                                            height: "40px",
+                                                            borderRadius: "50%",
+                                                            objectFit: "cover"
+                                                        }}
+                                                    />
+                                                    <span style={{ fontWeight: "500", color: "#333" }}>
+                                                        {friend}
+                                                    </span>
+                                                </div>
+                                                <button
+                                                    onClick={() => handleRemoveFriend(friend)}
+                                                    style={{
+                                                        background: "#f44336",
+                                                        color: "#fff",
+                                                        border: "none",
+                                                        padding: "6px 12px",
+                                                        borderRadius: "6px",
+                                                        fontSize: "12px",
+                                                        cursor: "pointer",
+                                                    }}
+                                                >
+                                                    Xóa bạn
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             ))}
                         </div>
@@ -310,63 +334,78 @@ const Contacts = () => {
                                     Không có lời mời kết bạn.
                                 </p>
                             ) : (
-                                friendRequests.map((req) => (
-                                    <div
-                                        key={req._id || req.id}
-                                        style={{
-                                            padding: "10px",
-                                            marginBottom: "15px",
-                                            borderRadius: "8px",
-                                            backgroundColor: "#f8f9fa",
-                                            display: "flex",
-                                            flexDirection: "column",
-                                        }}
-                                    >
-                                        <span style={{ fontWeight: "500", color: "#444" }}>
-                                            Từ: {req.from}
-                                        </span>
+                                friendRequests.map((req) => {
+                                    const fromUser = userList.find(u => u.username === req.from);
+                                    return (
                                         <div
+                                            key={req._id || req.id}
                                             style={{
-                                                marginTop: "10px",
+                                                padding: "10px",
+                                                marginBottom: "15px",
+                                                borderRadius: "8px",
+                                                backgroundColor: "#f8f9fa",
                                                 display: "flex",
-                                                gap: "10px",
+                                                flexDirection: "column",
                                             }}
                                         >
-                                            <button
-                                                onClick={() =>
-                                                    handleRespond(req._id || req.id, "accepted")
-                                                }
+                                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                                                <img
+                                                    src={fromUser?.image || "https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/User-avatar.svg/2048px-User-avatar.svg.png"}
+                                                    alt={req.from}
+                                                    style={{
+                                                        width: "40px",
+                                                        height: "40px",
+                                                        borderRadius: "50%",
+                                                        objectFit: "cover"
+                                                    }}
+                                                />
+                                                <span style={{ fontWeight: "500", color: "#444" }}>
+                                                    Từ: {req.from}
+                                                </span>
+                                            </div>
+                                            <div
                                                 style={{
-                                                    flex: 1,
-                                                    background: "#28a745",
-                                                    color: "#fff",
-                                                    border: "none",
-                                                    padding: "8px",
-                                                    borderRadius: "6px",
-                                                    cursor: "pointer",
+                                                    marginTop: "10px",
+                                                    display: "flex",
+                                                    gap: "10px",
                                                 }}
                                             >
-                                                Chấp nhận
-                                            </button>
-                                            <button
-                                                onClick={() =>
-                                                    handleRespond(req._id || req.id, "rejected")
-                                                }
-                                                style={{
-                                                    flex: 1,
-                                                    background: "#dc3545",
-                                                    color: "#fff",
-                                                    border: "none",
-                                                    padding: "8px",
-                                                    borderRadius: "6px",
-                                                    cursor: "pointer",
-                                                }}
-                                            >
-                                                Từ chối
-                                            </button>
+                                                <button
+                                                    onClick={() =>
+                                                        handleRespond(req._id || req.id, "accepted")
+                                                    }
+                                                    style={{
+                                                        flex: 1,
+                                                        background: "#28a745",
+                                                        color: "#fff",
+                                                        border: "none",
+                                                        padding: "8px",
+                                                        borderRadius: "6px",
+                                                        cursor: "pointer",
+                                                    }}
+                                                >
+                                                    Chấp nhận
+                                                </button>
+                                                <button
+                                                    onClick={() =>
+                                                        handleRespond(req._id || req.id, "rejected")
+                                                    }
+                                                    style={{
+                                                        flex: 1,
+                                                        background: "#dc3545",
+                                                        color: "#fff",
+                                                        border: "none",
+                                                        padding: "8px",
+                                                        borderRadius: "6px",
+                                                        cursor: "pointer",
+                                                    }}
+                                                >
+                                                    Từ chối
+                                                </button>
+                                            </div>
                                         </div>
-                                    </div>
-                                ))
+                                    );
+                                })
                             )}
                         </div>
                     </>
