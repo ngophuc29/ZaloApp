@@ -8,8 +8,9 @@ import {
     FaEnvelopeOpenText,
 } from "react-icons/fa";
 import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
-// Khởi tạo socket (nếu bạn dùng singleton, hãy đảm bảo đây là instance chung)
+// Khởi tạo socket (nếu dùng singleton, cần đảm bảo đây là instance chung)
 const socket = io("http://localhost:5000");
 
 const menuItems = [
@@ -24,74 +25,80 @@ const Contacts = () => {
     const [friendRequests, setFriendRequests] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [activeMenu, setActiveMenu] = useState("Danh sách bạn bè");
-
+    // Thêm loading state
+    const [isLoading, setIsLoading] = useState(false);
     const myUsername = localStorage.getItem("username") || "Guest";
 
-    // useEffect ban đầu để đăng ký các sự kiện socket và lấy dữ liệu khởi tạo
-    // useEffect(() => {
-    //     socket.emit("getFriends", myUsername);
-    //     socket.emit("getFriendRequests", myUsername);
-
-    //     socket.on("friendsList", (data) => setFriends(data));
-    //     socket.on("friendRequests", (data) => setFriendRequests(data));
-
-    //     socket.on("respondFriendRequestResult", (data) => {
-    //         toast.info(data.message);
-    //         socket.emit("getFriendRequests", myUsername);
-    //         socket.emit("getFriends", myUsername);
-    //     });
-
-    //     socket.on("cancelFriendResult", (data) => {
-    //         toast.info(data.message);
-    //         socket.emit("getFriends", myUsername);
-    //     });
-
-    //     return () => {
-    //         socket.off("friendsList");
-    //         socket.off("friendRequests");
-    //         socket.off("respondFriendRequestResult");
-    //         socket.off("cancelFriendResult");
-    //     };
-    // }, [myUsername]);
     useEffect(() => {
+        // Lấy dữ liệu ban đầu từ server
         socket.emit("getFriends", myUsername);
         socket.emit("getFriendRequests", myUsername);
 
-        socket.on("friendsList", (data) => setFriends(data));
-        socket.on("friendRequests", (data) => setFriendRequests(data));
+        // Lắng nghe danh sách bạn bè và lời mời kết bạn từ server
+        socket.on("friendsList", (data) => {
+            setFriends(data);
+        });
+        socket.on("friendRequests", (data) => {
+            setFriendRequests(data);
+        });
 
+         
+        // Lắng nghe sự kiện newFriendRequest với dữ liệu đầy đủ
+        socket.on("newFriendRequest", (data) => {
+            toast.info(`Bạn có lời mời kết bạn từ ${data.from}`);
+            // Cập nhật state ngay lập tức với danh sách mới
+            setFriendRequests(data.requests || []);
+        });
+        // Lắng nghe sự kiện cập nhật chung
+        socket.on("friendRequestUpdated", (data) => {
+            if (data.to === myUsername) {
+                // Nếu liên quan đến user hiện tại thì load lại danh sách
+                socket.emit("getFriendRequests", myUsername);
+            }
+        });
+        // Xử lý các sự kiện khác liên quan đến lời mời
         socket.on("respondFriendRequestResult", (data) => {
             toast.info(data.message);
             socket.emit("getFriendRequests", myUsername);
             socket.emit("getFriends", myUsername);
         });
-
         socket.on("cancelFriendResult", (data) => {
             toast.info(data.message);
             socket.emit("getFriends", myUsername);
         });
-
         socket.on("friendRequestWithdrawn", (data) => {
             toast.info(`${data.from} đã thu hồi lời mời kết bạn.`);
+            socket.emit("getFriendRequests", myUsername);
+        });
+        socket.on("friendAccepted", ({ friend, updatedFriends }) => {
+            toast.success(`Bạn đã kết bạn với ${friend}`);
+            if (updatedFriends) {
+                setFriends(updatedFriends);
+            } else {
+                socket.emit("getFriends", myUsername);
+            }
             socket.emit("getFriendRequests", myUsername);
         });
 
         return () => {
             socket.off("friendsList");
             socket.off("friendRequests");
+            socket.off("newFriendRequest");
             socket.off("respondFriendRequestResult");
             socket.off("cancelFriendResult");
             socket.off("friendRequestWithdrawn");
+            socket.off("friendAccepted");
+            socket.off("friendRequestUpdated");
         };
     }, [myUsername]);
-    // useEffect để refresh dữ liệu khi activeMenu thay đổi
+
+    // Refresh data khi tab thay đổi
     useEffect(() => {
         if (activeMenu === "Danh sách bạn bè") {
             socket.emit("getFriends", myUsername);
         } else if (activeMenu === "Lời mời kết bạn") {
             socket.emit("getFriendRequests", myUsername);
         }
-        // Có thể thêm các emit khác nếu có các tab khác cần refresh data
     }, [activeMenu, myUsername]);
 
     const handleRemoveFriend = (friendUsername) => {
@@ -108,14 +115,14 @@ const Contacts = () => {
         socket.emit("respondFriendRequest", { requestId, action });
     };
 
-    // Tính toán danh sách bạn bè theo bộ lọc tìm kiếm
+    // Lọc danh sách bạn bè dựa theo từ khóa tìm kiếm
     const filteredFriends = friends
         .filter((friend) =>
             friend.toLowerCase().includes(searchTerm.toLowerCase())
         )
         .sort((a, b) => a.localeCompare(b));
 
-    // Nhóm bạn bè theo chữ cái đầu
+    // Nhóm bạn bè theo chữ cái đầu tiên
     const groupedFriends = filteredFriends.reduce((acc, friend) => {
         const firstLetter = friend.charAt(0).toUpperCase();
         if (!acc[firstLetter]) acc[firstLetter] = [];
@@ -133,7 +140,7 @@ const Contacts = () => {
                 fontFamily: "Segoe UI, sans-serif",
             }}
         >
-            {/* Toast container hiển thị thông báo */}
+            {/* Toast Container */}
             <ToastContainer />
 
             {/* Sidebar */}

@@ -9,30 +9,25 @@ const FriendModal = ({
     setFriendModalVisible,
     handleAddFriend,            // Hàm này sẽ emit "addFriend" qua socket
     handleWithdrawFriendRequest, // Hàm này sẽ emit "withdrawFriendRequest" qua socket
-    requestedFriends,        // ✅ THÊM
-    setRequestedFriends,     // ✅ THÊM
-
+    requestedFriends,           // danh sách người nhận lời mời (đã gửi) nhận từ state của component cha
+    setRequestedFriends,        // cập nhật state cho danh sách lời mời đã gửi từ component cha
 }) => {
     // State để theo dõi username đang được gửi lời mời hoặc thu hồi lời mời
     const [loadingFriend, setLoadingFriend] = useState(null);
-    // State để theo dõi danh sách những người mà lời mời đã được gửi (chưa được đồng ý hoặc hủy)
-     
 
-    // Khi bấm nút "Kết bạn": gửi lời mời và thêm vào danh sách đã gửi
+    // Khi bấm nút "Kết bạn": gửi lời mời và đóng modal
     const addFriendHandler = async (username) => {
         setLoadingFriend(username);
-        await handleAddFriend(username);
+        await handleAddFriend(username); // Sau khi emit, component cha sẽ nhận sự kiện realtime và cập nhật requestedFriends nếu cần.
         setLoadingFriend(null);
-        // setRequestedFriends((prev) => [...prev, username]);
-        setFriendModalVisible(false)
+        setFriendModalVisible(false);
     };
 
-    // Khi bấm nút "Thu hồi": gọi hàm thu hồi lời mời và loại bỏ username khỏi danh sách lời mời đã gửi
+    // Khi bấm nút "Thu hồi": gọi hàm thu hồi lời mời và cập nhật lại danh sách lời mời đã gửi
     const cancelFriendHandler = async (username) => {
         setLoadingFriend(username);
         await handleWithdrawFriendRequest(username);
         setLoadingFriend(null);
-        // setRequestedFriends((prev) => prev.filter((u) => u !== username));
     };
 
     return (
@@ -85,7 +80,7 @@ const FriendModal = ({
                                         !friends.includes(acc.username)
                                 )
                                 .map((acc) => {
-                                    // Nếu user đã được gửi lời mời thì hiển thị nút "Thu hồi", ngược lại hiển thị nút "Kết bạn"
+                                    // Kiểm tra nếu lời mời đã được gửi (theo state requestedFriends)
                                     const isRequested = requestedFriends.includes(acc.username);
                                     return (
                                         <li
