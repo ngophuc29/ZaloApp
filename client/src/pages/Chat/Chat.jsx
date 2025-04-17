@@ -418,6 +418,18 @@ const Chat = () => {
         };
     }, [groupDetailsVisible, myname]);
 
+    useEffect(() => {
+        if (friendModalVisible) {
+            // 1) Reload danh sách bạn bè
+            socket.emit("getFriends", myname);
+
+            // 2) Reload danh sách lời mời đã gửi
+            socket.emit("getSentFriendRequests", myname);
+
+            // 3) Reset input tìm kiếm
+            setFriendInput("");
+        }
+    }, [friendModalVisible]);
     // Hàm gửi tin nhắn
     const sendMessage = () => {
         if (!currentRoom) {
