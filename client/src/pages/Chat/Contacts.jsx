@@ -10,7 +10,8 @@ import {
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-// Khởi tạo socket (nếu dùng singleton, cần đảm bảo đây là instance chung)
+// Khởi tạo socket (đảm bảo chỉ tạo 1 instance chung nếu cần tái sử dụng)
+// Bạn có thể chuyển khởi tạo này ra riêng thành utils/socket.js rồi import về
 const socket = io("http://localhost:5000");
 
 const menuItems = [
@@ -25,83 +26,86 @@ const Contacts = () => {
     const [friendRequests, setFriendRequests] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [activeMenu, setActiveMenu] = useState("Danh sách bạn bè");
-    // Thêm loading state
-    const [isLoading, setIsLoading] = useState(false);
-    const [userList, setUserList] = useState([]); // State lưu thông tin người dùng
+    const [userList, setUserList] = useState([]);
     const myUsername = localStorage.getItem("username") || "Guest";
 
     useEffect(() => {
-        // Fetch danh sách người dùng
+        // 0) Đăng ký user với server để nhận các emit riêng
+        socket.emit("registerUser", myUsername);
+
+        // 1) Load danh sách tất cả account để show avatar, fullname...
         fetch("http://localhost:5000/api/accounts")
             .then((res) => res.json())
-            .then((data) => {
-                setUserList(data);
-            })
+            .then((data) => setUserList(data))
             .catch((err) => console.error("Error fetching accounts:", err));
 
-        // Lấy dữ liệu ban đầu từ server
+        // 2) Lấy dữ liệu ban đầu
         socket.emit("getFriends", myUsername);
         socket.emit("getFriendRequests", myUsername);
 
-        // Lắng nghe danh sách bạn bè và lời mời kết bạn từ server
+        // 3) Đăng ký listeners
         socket.on("friendsList", (data) => {
             setFriends(data);
         });
+        // realtime cập nhật khi server emit sau accept/cancel
+        socket.on("friendsListUpdated", (updated) => {
+            console.log("Received friendsListUpdated", updated);
+            setFriends(updated);
+        });
+
         socket.on("friendRequests", (data) => {
             setFriendRequests(data);
         });
 
-         
-        // Lắng nghe sự kiện newFriendRequest với dữ liệu đầy đủ
         socket.on("newFriendRequest", (data) => {
             toast.info(`Bạn có lời mời kết bạn từ ${data.from}`);
-            // Cập nhật state ngay lập tức với danh sách mới
             setFriendRequests(data.requests || []);
         });
-        // Lắng nghe sự kiện cập nhật chung
+
         socket.on("friendRequestUpdated", (data) => {
             if (data.to === myUsername) {
-                // Nếu liên quan đến user hiện tại thì load lại danh sách
                 socket.emit("getFriendRequests", myUsername);
             }
         });
-        // Xử lý các sự kiện khác liên quan đến lời mời
+
         socket.on("respondFriendRequestResult", (data) => {
             toast.info(data.message);
             socket.emit("getFriendRequests", myUsername);
             socket.emit("getFriends", myUsername);
         });
+
         socket.on("cancelFriendResult", (data) => {
             toast.info(data.message);
-            socket.emit("getFriends", myUsername);
+            // server cũng emit friendsListUpdated → chúng ta sẽ nhận và cập nhật
         });
+
         socket.on("friendRequestWithdrawn", (data) => {
             toast.info(`${data.from} đã thu hồi lời mời kết bạn.`);
             socket.emit("getFriendRequests", myUsername);
         });
-        socket.on("friendAccepted", ({ friend, updatedFriends }) => {
+
+        // Khi accept, server emit 2 event: friendAccepted + friendsListUpdated
+        socket.on("friendAccepted", ({ friend }) => {
             toast.success(`Bạn đã kết bạn với ${friend}`);
-            if (updatedFriends) {
-                setFriends(updatedFriends);
-            } else {
-                socket.emit("getFriends", myUsername);
-            }
             socket.emit("getFriendRequests", myUsername);
         });
 
         return () => {
+            // Cleanup tất cả listeners
+            socket.off("registerUser");
             socket.off("friendsList");
+            socket.off("friendsListUpdated");
             socket.off("friendRequests");
             socket.off("newFriendRequest");
+            socket.off("friendRequestUpdated");
             socket.off("respondFriendRequestResult");
             socket.off("cancelFriendResult");
             socket.off("friendRequestWithdrawn");
             socket.off("friendAccepted");
-            socket.off("friendRequestUpdated");
         };
     }, [myUsername]);
 
-    // Refresh data khi tab thay đổi
+    // Khi chuyển tab, reload data phù hợp
     useEffect(() => {
         if (activeMenu === "Danh sách bạn bè") {
             socket.emit("getFriends", myUsername);
@@ -110,56 +114,37 @@ const Contacts = () => {
         }
     }, [activeMenu, myUsername]);
 
+    // Xóa bạn
     const handleRemoveFriend = (friendUsername) => {
-        if (
-            window.confirm(
-                `Bạn có chắc muốn xóa ${friendUsername} khỏi danh sách bạn bè không?`
-            )
-        ) {
+        if (window.confirm(`Xóa ${friendUsername} khỏi danh sách bạn bè?`)) {
             socket.emit("cancelFriend", { myUsername, friendUsername });
         }
     };
 
+    // Phản hồi lời mời
     const handleRespond = (requestId, action) => {
         socket.emit("respondFriendRequest", { requestId, action });
     };
 
-    // Lọc danh sách bạn bè dựa theo từ khóa tìm kiếm
+    // Lọc & nhóm bạn theo chữ cái đầu
     const filteredFriends = friends
-        .filter((friend) =>
-            friend.toLowerCase().includes(searchTerm.toLowerCase())
-        )
+        .filter((f) => f.toLowerCase().includes(searchTerm.toLowerCase()))
         .sort((a, b) => a.localeCompare(b));
 
-    // Nhóm bạn bè theo chữ cái đầu tiên
     const groupedFriends = filteredFriends.reduce((acc, friend) => {
-        const firstLetter = friend.charAt(0).toUpperCase();
-        if (!acc[firstLetter]) acc[firstLetter] = [];
-        acc[firstLetter].push(friend);
+        const c = friend.charAt(0).toUpperCase();
+        if (!acc[c]) acc[c] = [];
+        acc[c].push(friend);
         return acc;
     }, {});
 
     const sortedLetters = Object.keys(groupedFriends).sort();
 
     return (
-        <div
-            style={{
-                display: "flex",
-                height: "100vh",
-                fontFamily: "Segoe UI, sans-serif",
-            }}
-        >
-            {/* Toast Container */}
+        <div style={{ display: "flex", height: "100vh", fontFamily: "Segoe UI, sans-serif" }}>
             <ToastContainer />
-
             {/* Sidebar */}
-            <aside
-                style={{
-                    width: "300px",
-                    background: "#f1f4f9",
-                    borderRight: "1px solid #ddd",
-                }}
-            >
+            <aside style={{ width: "300px", background: "#f1f4f9", borderRight: "1px solid #ddd" }}>
                 <div style={{ padding: "20px" }}>
                     <div
                         style={{
@@ -187,14 +172,7 @@ const Contacts = () => {
                             }}
                         />
                     </div>
-
-                    <div
-                        style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: "5px",
-                        }}
-                    >
+                    <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
                         {menuItems.map((item) => (
                             <button
                                 key={item.label}
@@ -209,17 +187,11 @@ const Contacts = () => {
                                     fontSize: "14px",
                                     cursor: "pointer",
                                     background:
-                                        activeMenu === item.label
-                                            ? "#e6f4ff"
-                                            : "transparent",
+                                        activeMenu === item.label ? "#e6f4ff" : "transparent",
                                     color:
-                                        activeMenu === item.label
-                                            ? "#007aff"
-                                            : "#333",
+                                        activeMenu === item.label ? "#007aff" : "#333",
                                     fontWeight:
-                                        activeMenu === item.label
-                                            ? "600"
-                                            : "400",
+                                        activeMenu === item.label ? "600" : "400",
                                 }}
                             >
                                 {item.icon} {item.label}
@@ -242,11 +214,8 @@ const Contacts = () => {
                             }}
                         >
                             <h2 style={{ margin: 0 }}>Danh sách bạn bè</h2>
-                            <span style={{ color: "#555" }}>
-                                Tổng: {filteredFriends.length}
-                            </span>
+                            <span style={{ color: "#555" }}>Tổng: {filteredFriends.length}</span>
                         </div>
-
                         <div
                             style={{
                                 background: "#fff",
@@ -267,11 +236,11 @@ const Contacts = () => {
                                     >
                                         {letter}
                                     </h4>
-                                    {groupedFriends[letter].map((friend, index) => {
-                                        const friendInfo = userList.find(u => u.username === friend);
+                                    {groupedFriends[letter].map((friend, idx) => {
+                                        const info = userList.find((u) => u.username === friend);
                                         return (
                                             <div
-                                                key={index}
+                                                key={idx}
                                                 style={{
                                                     display: "flex",
                                                     justifyContent: "space-between",
@@ -282,13 +251,16 @@ const Contacts = () => {
                                             >
                                                 <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                                                     <img
-                                                        src={friendInfo?.image || "https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/User-avatar.svg/2048px-User-avatar.svg.png"}
+                                                        src={
+                                                            info?.image ||
+                                                            "https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/User-avatar.svg/2048px-User-avatar.svg.png"
+                                                        }
                                                         alt={friend}
                                                         style={{
                                                             width: "40px",
                                                             height: "40px",
                                                             borderRadius: "50%",
-                                                            objectFit: "cover"
+                                                            objectFit: "cover",
                                                         }}
                                                     />
                                                     <span style={{ fontWeight: "500", color: "#333" }}>
@@ -335,7 +307,7 @@ const Contacts = () => {
                                 </p>
                             ) : (
                                 friendRequests.map((req) => {
-                                    const fromUser = userList.find(u => u.username === req.from);
+                                    const fromUser = userList.find((u) => u.username === req.from);
                                     return (
                                         <div
                                             key={req._id || req.id}
@@ -350,30 +322,25 @@ const Contacts = () => {
                                         >
                                             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                                                 <img
-                                                    src={fromUser?.image || "https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/User-avatar.svg/2048px-User-avatar.svg.png"}
+                                                    src={
+                                                        fromUser?.image ||
+                                                        "https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/User-avatar.svg/2048px-User-avatar.svg.png"
+                                                    }
                                                     alt={req.from}
                                                     style={{
                                                         width: "40px",
                                                         height: "40px",
                                                         borderRadius: "50%",
-                                                        objectFit: "cover"
+                                                        objectFit: "cover",
                                                     }}
                                                 />
                                                 <span style={{ fontWeight: "500", color: "#444" }}>
                                                     Từ: {req.from}
                                                 </span>
                                             </div>
-                                            <div
-                                                style={{
-                                                    marginTop: "10px",
-                                                    display: "flex",
-                                                    gap: "10px",
-                                                }}
-                                            >
+                                            <div style={{ marginTop: "10px", display: "flex", gap: "10px" }}>
                                                 <button
-                                                    onClick={() =>
-                                                        handleRespond(req._id || req.id, "accepted")
-                                                    }
+                                                    onClick={() => handleRespond(req._id || req.id, "accepted")}
                                                     style={{
                                                         flex: 1,
                                                         background: "#28a745",
@@ -387,9 +354,7 @@ const Contacts = () => {
                                                     Chấp nhận
                                                 </button>
                                                 <button
-                                                    onClick={() =>
-                                                        handleRespond(req._id || req.id, "rejected")
-                                                    }
+                                                    onClick={() => handleRespond(req._id || req.id, "rejected")}
                                                     style={{
                                                         flex: 1,
                                                         background: "#dc3545",

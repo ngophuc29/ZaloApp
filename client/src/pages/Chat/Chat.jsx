@@ -92,7 +92,9 @@ const Chat = () => {
         // Lấy danh sách bạn bè của user hiện tại
         socket.emit("getFriends", myname);
         socket.on("friendsList", (data) => setFriends(data));
-
+        socket.on("friendsListUpdated", (updatedFriends) => {
+            setFriends(updatedFriends);
+        });
         // Các handler sự kiện từ socket
         const handleHistory = (data) => {
             const history = JSON.parse(data);
@@ -415,6 +417,9 @@ const Chat = () => {
 
             // Off sự kiện mới đăng ký
             socket.off("userJoined");
+
+             socket.off("friendsList");
+             socket.off("friendsListUpdated");
         };
     }, [groupDetailsVisible, myname]);
 
