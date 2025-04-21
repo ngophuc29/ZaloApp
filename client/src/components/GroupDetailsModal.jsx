@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 
 const GroupDetailsModal = ({
     groupInfo,
@@ -11,18 +11,79 @@ const GroupDetailsModal = ({
     handleAddGroupMember,
     handleLeaveGroup,
     handleDisbandGroup,
+    searchUsers,
 }) => {
     const [newMemberInput, setNewMemberInput] = useState("");
     const [selectedNewOwner, setSelectedNewOwner] = useState("");
+    const [suggestions, setSuggestions] = useState([]);
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const [isSearching, setIsSearching] = useState(false);
+    const searchTimeout = useRef(null);
+    const suggestionsRef = useRef(null);
+
     const isOwner = groupInfo.owner === myname;
     const isDeputy = groupInfo.deputies.includes(myname);
     const eligibleNewOwners = groupInfo.members.filter(m => m !== myname);
+
+    useEffect(() => {
+        // Add click outside listener to close suggestions
+        const handleClickOutside = (event) => {
+            if (suggestionsRef.current && !suggestionsRef.current.contains(event.target)) {
+                setShowSuggestions(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const handleSearch = async (value) => {
+        setNewMemberInput(value);
+        
+        // Clear previous timeout
+        if (searchTimeout.current) {
+            clearTimeout(searchTimeout.current);
+        }
+
+        if (value.trim()) {
+            setIsSearching(true);
+            // Debounce search
+            searchTimeout.current = setTimeout(async () => {
+                try {
+                    const results = await searchUsers(value);
+                    // Filter out existing members
+                    const filteredResults = results.filter(user => 
+                        !groupInfo.members.includes(user.username) && 
+                        user.username !== myname
+                    );
+                    setSuggestions(filteredResults);
+                    setShowSuggestions(true);
+                } catch (error) {
+                    console.error('Error searching users:', error);
+                } finally {
+                    setIsSearching(false);
+                }
+            }, 300);
+        } else {
+            setSuggestions([]);
+            setShowSuggestions(false);
+        }
+    };
 
     const onAddMember = () => {
         if (newMemberInput.trim()) {
             handleAddGroupMember(newMemberInput.trim());
             setNewMemberInput("");
+            setSuggestions([]);
+            setShowSuggestions(false);
         }
+    };
+
+    const selectSuggestion = (username) => {
+        handleAddGroupMember(username);
+        setNewMemberInput("");
+        setSuggestions([]);
+        setShowSuggestions(false);
     };
 
     return (
@@ -108,18 +169,71 @@ const GroupDetailsModal = ({
                         </div>
 
                         {/* Add Member */}
-                        <div className="input-group mt-3">
-                            <input
-                                type="text"
-                                className="form-control"
-                                placeholder="Username to add"
-                                value={newMemberInput}
-                                onChange={e => setNewMemberInput(e.target.value)}
-                                onKeyDown={e => e.key === "Enter" && onAddMember()}
-                            />
-                            <button className="btn btn-outline-primary" onClick={onAddMember}>
-                                Add
-                            </button>
+                        <div className="position-relative">
+                            <div className="input-group mt-3">
+                                <input
+                                    type="text"
+                                    className="form-control"
+                                    placeholder="Search username to add..."
+                                    value={newMemberInput}
+                                    onChange={(e) => handleSearch(e.target.value)}
+                                    onKeyDown={e => {
+                                        if (e.key === "Enter" && !showSuggestions) {
+                                            onAddMember();
+                                        }
+                                    }}
+                                />
+                                <button 
+                                    className="btn btn-outline-primary" 
+                                    onClick={onAddMember}
+                                    disabled={isSearching}
+                                >
+                                    {isSearching ? (
+                                        <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                    ) : (
+                                        "Add"
+                                    )}
+                                </button>
+                            </div>
+
+                            {/* Suggestions Dropdown */}
+                            {showSuggestions && suggestions.length > 0 && (
+                                <div 
+                                    ref={suggestionsRef}
+                                    className="position-absolute w-100 mt-1 bg-white border rounded shadow-sm" 
+                                    style={{ 
+                                        maxHeight: "200px", 
+                                        overflowY: "auto",
+                                        zIndex: 1000
+                                    }}
+                                >
+                                    {suggestions.map((user) => (
+                                        <div
+                                            key={user.username}
+                                            className="p-2 cursor-pointer hover-bg-light border-bottom"
+                                            style={{ cursor: 'pointer' }}
+                                            onClick={() => selectSuggestion(user.username)}
+                                        >
+                                            <div className="d-flex align-items-center">
+                                                {user.avatar && (
+                                                    <img 
+                                                        src={user.avatar} 
+                                                        alt={user.username}
+                                                        className="rounded-circle me-2"
+                                                        style={{ width: "30px", height: "30px" }}
+                                                    />
+                                                )}
+                                                <div>
+                                                    <div className="fw-bold">{user.username}</div>
+                                                    {user.fullName && (
+                                                        <div className="text-muted small">{user.fullName}</div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
                         {/* If owner: select new owner */}
