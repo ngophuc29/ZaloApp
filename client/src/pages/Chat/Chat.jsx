@@ -570,12 +570,16 @@ const Chat = () => {
         socket.emit("addGroupMember", { roomId: currentRoom, newMember });
     };
 
-    const handleLeaveGroup = () => {
-        if (window.confirm("Bạn có chắc muốn rời khỏi nhóm này?")) {
-            socket.emit("leaveGroup", { roomId: currentRoom });
+    const handleLeaveGroup = (newOwner) => {
+        if (window.confirm(
+            newOwner
+                ? `Bạn có chắc muốn chuyển quyền cho ${newOwner} và rời khỏi nhóm này?`
+                : "Bạn phải chọn người nhận quyền trước khi rời nhóm"
+        )) {
+            socket.emit("leaveGroup", { roomId: currentRoom, newOwner });
             setGroupDetailsVisible(false);
         }
-    };
+    }
 
     const handleDisbandGroup = () => {
         if (window.confirm("Bạn có chắc muốn giải tán nhóm này?")) {
@@ -692,7 +696,7 @@ const Chat = () => {
                     handleAssignDeputy={handleAssignDeputy}
                     handleCancelDeputy={handleCancelDeputy}
                     handleAddGroupMember={handleAddGroupMember}
-                    handleLeaveGroup={handleLeaveGroup}
+                    handleLeaveGroup={(selectedNewOwner) => handleLeaveGroup(selectedNewOwner)}
                     handleDisbandGroup={handleDisbandGroup}
                 />
             )}
