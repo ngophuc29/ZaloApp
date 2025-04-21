@@ -50,11 +50,8 @@ const Chat = () => {
     const [friendInput, setFriendInput] = useState("");
     const [friends, setFriends] = useState([]);
 
-
     const [requestedFriends, setRequestedFriends] = useState([]);
     
-
-
     const inputRef = useRef(null);
     const myname = localStorage.getItem("username") || "Guest";
 
@@ -620,6 +617,15 @@ const Chat = () => {
         socket.emit("message", JSON.stringify(messageObj));
     };
 
+    // Add searchUsers function
+    const searchUsers = async (query) => {
+        return accounts.filter(acc => 
+            acc.username.toLowerCase().includes(query.toLowerCase()) ||
+            (acc.fullname && acc.fullname.toLowerCase().includes(query.toLowerCase())) ||
+            (acc.phone && acc.phone.toLowerCase().includes(query.toLowerCase()))
+        );
+    };
+
     return (
         <div className="container-fluid">
             <div className="row">
@@ -698,6 +704,7 @@ const Chat = () => {
                     handleAddGroupMember={handleAddGroupMember}
                     handleLeaveGroup={(selectedNewOwner) => handleLeaveGroup(selectedNewOwner)}
                     handleDisbandGroup={handleDisbandGroup}
+                    searchUsers={searchUsers}
                 />
             )}
             {friendModalVisible && (
