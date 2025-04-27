@@ -1,5 +1,6 @@
-import React from "react";
-import { FaSearch, FaUserPlus, FaUsers } from "react-icons/fa"; // icon mới
+import React, { useState, useEffect } from "react";
+import { FaSearch, FaUserPlus, FaUsers } from "react-icons/fa";
+import "./LeftPanel.css"; // We'll create this file next
 
 const LeftPanel = ({
     searchFilter,
@@ -12,13 +13,57 @@ const LeftPanel = ({
     setFriendModalVisible,
     onOpenGroupModal,
 }) => {
+    const [userList, setUserList] = useState([]);
     const isSearching = searchFilter.trim().length > 0;
+
+    useEffect(() => {
+        fetch("http://localhost:5000/api/accounts")
+            .then((res) => res.json())
+            .then((data) => {
+                setUserList(data);
+            })
+            .catch((err) => console.error("Error fetching accounts:", err));
+    }, []);
+
+    const getAvatarByName = (name) => {
+        const user = userList.find((u) => u.username === name);
+        return user?.image || "https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/User-avatar.svg/2048px-User-avatar.svg.png";
+    };
+
+    const formatTime = (timestamp) => {
+        if (!timestamp) return "";
+        const date = new Date(timestamp);
+        const now = new Date();
+        const diff = now - date;
+
+        // Nếu là hôm nay, chỉ hiện giờ:phút
+        if (diff < 24 * 60 * 60 * 1000) {
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+        // Nếu trong tuần này, hiện tên thứ
+        if (diff < 7 * 24 * 60 * 60 * 1000) {
+            return date.toLocaleDateString([], { weekday: 'short' });
+        }
+        // Nếu quá 1 tuần, hiện ngày/tháng
+        return date.toLocaleDateString([], { day: '2-digit', month: '2-digit' });
+    };
+
+    const renderLastMessage = (chat) => {
+        if (!chat.lastMessage) return "";
+        const { content, senderId } = chat.lastMessage;
+        const messagePreview = content.length > 30 ? content.substring(0, 30) + "..." : content;
+        const currentUser = localStorage.getItem("username");
+        
+        if (senderId === currentUser) {
+            return `Bạn: ${messagePreview}`;
+        }
+        return `${senderId}: ${messagePreview}`;
+    };
 
     return (
         <div className="col-3 border-end" style={{ padding: "10px" }}>
             {/* Search Bar & Buttons */}
             <div className="mb-3 d-flex align-items-center">
-                {/* Ô search với icon kính lúp bên trong */}
                 <div className="input-group">
                     <span className="input-group-text bg-white">
                         <FaSearch />
@@ -32,7 +77,6 @@ const LeftPanel = ({
                     />
                 </div>
 
-                {/* Nút friend/group */}
                 {isSearching ? (
                     <button
                         className="btn btn-danger ms-2"
@@ -60,64 +104,79 @@ const LeftPanel = ({
                 )}
             </div>
 
-
             {/* Danh sách bên dưới */}
             {isSearching ? (
-                // Khi đang search: hiển thị danh sách user lọc được
-                <ul className="list-unstyled">
+                <div className="search-results">
                     {filteredAccounts.map((account, idx) => (
-                        <li
+                        <div
                             key={idx}
+                            className="search-item"
                             style={{ cursor: "pointer", marginBottom: "10px" }}
                             onClick={() => handleUserClick(account.username)}
                         >
-                            <div className="d-flex">
-                                <span>UserName: </span>
-                                <p className="ms-2">{account.username}</p>
+                            <img
+                                src={account.image || "https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/User-avatar.svg/2048px-User-avatar.svg.png"}
+                                alt={account.username}
+                                className="chat-avatar"
+                             
+                            />
+                            <div className="user-info">
+                                <div className="username">  <span>UserName: </span> {account.username}</div>
+                                <div className="fullname">  <span>FullName : </span> {account.fullname}</div>
                             </div>
-                            <div className="d-flex">
-                                <span>FullName: </span>
-                                <p className="ms-2">{account.fullname}</p>
-                            </div>
-                        </li>
+                        </div>
                     ))}
-                </ul>
+                </div>
             ) : (
-                // Khi không search: hiển thị danh sách chat (vẫn cho phép chuyển room)
-                <div>
-                    <ul id="chat_list_ul" className="list-group">
-                        {Object.keys(activeChats).map((room) => {
-                            const isActive = room === activeRoom;
-                            return (
-                                <li
-                                    key={room}
-                                    style={{
-                                        cursor: "pointer",
-                                        padding: "5px",
-                                        borderBottom: "1px solid #ddd",
-                                        backgroundColor: isActive ? "#f0f8ff" : "transparent",
-                                        listStyle:"none"
-                                    }}
-                                    onClick={() => handleRoomClick(room)}
-                                >
-                                    {activeChats[room].partner}
-                                    {activeChats[room].unread > 0 && (
-                                        <span
-                                            style={{
-                                                backgroundColor: "red",
-                                                color: "white",
-                                                borderRadius: "50%",
-                                                padding: "2px 5px",
-                                                marginLeft: "5px",
-                                            }}
-                                        >
-                                            {Math.ceil(activeChats[room].unread)}
-                                        </span>
+                <div className="chat-list">
+                    {Object.keys(activeChats).map((room) => {
+                        const chat = activeChats[room];
+                        const isActive = room === activeRoom;
+
+                        return (
+                            <div
+                                key={room}
+                                className={`chat-item ${isActive ? 'active' : ''}`}
+                                onClick={() => handleRoomClick(room)}
+                            >
+                                <div className="chat-avatar">
+                                    {chat.isGroup ? (
+                                        <div className="group-avatar">
+                                            <FaUsers />
+                                        </div>
+                                    ) : (
+                                        <img
+                                            src={getAvatarByName(chat.partner)}
+                                            alt={chat.partner}
+                                            className="avatar"
+                                        />
                                     )}
-                                </li>
-                            );
-                        })}
-                    </ul>
+                                </div>
+
+                                <div className="chat-info">
+                                    <div className="chat-header">
+                                        <span className="chat-name">
+                                            {chat.isGroup ? room : chat.partner}
+                                        </span>
+                                        {chat.lastMessage && (
+                                            <span className="chat-time">
+                                                {formatTime(chat.lastMessage.timestamp)}
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    <div className="chat-preview">
+                                        <span className="last-message">{renderLastMessage(chat)}</span>
+                                        {chat.unread > 0 && (
+                                            <span className="unread-badge">
+                                                {Math.ceil(chat.unread)}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
             )}
         </div>
