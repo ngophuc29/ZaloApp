@@ -51,7 +51,7 @@ const Chat = () => {
     const [friends, setFriends] = useState([]);
 
     const [requestedFriends, setRequestedFriends] = useState([]);
-    
+
     const inputRef = useRef(null);
     const myname = localStorage.getItem("username") || "Guest";
 
@@ -64,6 +64,15 @@ const Chat = () => {
     useEffect(() => {
         messagesRef.current = messages;
     }, [messages]);
+
+
+    useEffect(() => {
+        Object.keys(activeChats).forEach(roomId => {
+            socket.emit("getLastMessage", roomId);
+        });
+    }, [activeChats]);
+
+
     const processedUnreadMessagesRef = useRef(new Set());
     const joinedRoomsRef = useRef(new Set());
     const didRegisterRef = useRef(false);
@@ -116,28 +125,46 @@ const Chat = () => {
         const handleThread = (data) => {
             const obj = JSON.parse(data);
             const msgId = getMessageId(obj);
+
+            // Cập nhật messages state
             setMessages((prev) => {
                 if (prev.find((msg) => getMessageId(msg) === msgId)) return prev;
                 return [...prev, obj];
             });
-            // Nếu message đến từ một phòng không phải phòng đang active thì cập nhật unread
-            if (obj.room !== currentRoomRef.current && msgId && !processedUnreadMessagesRef.current.has(msgId)) {
-                processedUnreadMessagesRef.current.add(msgId);
-                setActiveChats((prev) => {
-                    const updated = { ...prev };
-                    if (updated[obj.room]) {
+
+            // Luôn cập nhật lastMessage cho phòng chat, bất kể là phòng hiện tại hay không
+            setActiveChats((prev) => {
+                const updated = { ...prev };
+                if (updated[obj.room]) {
+                    // Cập nhật lastMessage
+                    updated[obj.room].lastMessage = {
+                        content: obj.message,
+                        senderId: obj.name,
+                        timestamp: new Date().toISOString()
+                    };
+
+                    // Chỉ tăng unread nếu tin nhắn từ phòng khác
+                    if (obj.room !== currentRoomRef.current && msgId && !processedUnreadMessagesRef.current.has(msgId)) {
+                        processedUnreadMessagesRef.current.add(msgId);
                         updated[obj.room].unread = (updated[obj.room].unread || 0) + 0.5;
-                    } else {
-                        updated[obj.room] = {
-                            partner: obj.room.includes("_") ? (obj.groupName || "Group Chat") : obj.name,
-                            unread: 0.5,
-                            isGroup: obj.room.includes("_"),
-                        };
                     }
-                    localStorage.setItem("activeChats", JSON.stringify(updated));
-                    return updated;
-                });
-            }
+                } else {
+                    // Tạo mới nếu phòng chưa tồn tại
+                    updated[obj.room] = {
+                        partner: obj.room.includes("_") ? (obj.groupName || "Group Chat") : obj.name,
+                        unread: obj.room !== currentRoomRef.current ? 0.5 : 0,
+                        isGroup: obj.room.includes("_"),
+                        lastMessage: {
+                            content: obj.message,
+                            senderId: obj.name,
+                            timestamp: new Date().toISOString()
+                        }
+                    };
+                }
+                // Lưu vào localStorage sau mỗi lần cập nhật
+                localStorage.setItem("activeChats", JSON.stringify(updated));
+                return updated;
+            });
         };
 
         const handleMessageDeleted = (data) => {
@@ -183,25 +210,53 @@ const Chat = () => {
             const conversations = JSON.parse(data);
             setActiveChats((prev) => {
                 const updated = { ...prev };
+
+                // Xử lý group chats
                 if (conversations.groupChats && conversations.groupChats.length > 0) {
                     conversations.groupChats.forEach((group) => {
                         if (!updated[group.roomId]) {
-                            updated[group.roomId] = { partner: group.groupName, unread: group.unread || 0, isGroup: true };
+                            updated[group.roomId] = {
+                                partner: group.groupName,
+                                unread: group.unread || 0,
+                                isGroup: true,
+                                groupName: group.groupName,
+                                lastMessage: group.lastMessage || null
+                            };
                         } else {
                             updated[group.roomId].unread = group.unread || updated[group.roomId].unread;
+                            // Chỉ cập nhật lastMessage nếu có và mới hơn
+                            if (group.lastMessage && (!updated[group.roomId].lastMessage ||
+                                new Date(group.lastMessage.timestamp) > new Date(updated[group.roomId].lastMessage.timestamp))) {
+                                updated[group.roomId].lastMessage = group.lastMessage;
+                            }
                         }
                     });
                 }
+
+                // Xử lý private chats
                 if (conversations.privateChats && conversations.privateChats.length > 0) {
                     conversations.privateChats.forEach((chat) => {
                         const roomId = chat.roomId || chat.room;
                         if (!updated[roomId]) {
-                            updated[roomId] = { partner: chat.friend, unread: chat.unread || 0, isGroup: false };
+                            updated[roomId] = {
+                                partner: chat.friend,
+                                unread: chat.unread || 0,
+                                isGroup: false,
+                                partnerAvatar: chat.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${chat.friend}`,
+                                lastMessage: chat.lastMessage || null
+                            };
                         } else {
                             updated[roomId].unread = chat.unread || updated[roomId].unread;
+                            // Chỉ cập nhật lastMessage nếu có và mới hơn
+                            if (chat.lastMessage && (!updated[roomId].lastMessage ||
+                                new Date(chat.lastMessage.timestamp) > new Date(updated[roomId].lastMessage.timestamp))) {
+                                updated[roomId].lastMessage = chat.lastMessage;
+                            }
                         }
                     });
                 }
+
+                // Lưu vào localStorage
                 localStorage.setItem("activeChats", JSON.stringify(updated));
                 return updated;
             });
@@ -384,6 +439,29 @@ const Chat = () => {
         socket.on("withdrawFriendRequestResult", handleWithdrawFriendRequestResult);
         socket.on("addFriendResult", (data) => alert(data.message));
 
+
+
+        socket.on("lastMessage", (msgDoc) => {
+            // nếu server trả về null (room chưa có tin nhắn) thì bỏ qua luôn
+            if (!msgDoc || !msgDoc.room) return;
+
+            setActiveChats(prev => {
+                // chỉ cập nhật khi room đã tồn tại trong activeChats
+                if (!prev[msgDoc.room]) return prev;
+                return {
+                    ...prev,
+                    [msgDoc.room]: {
+                        ...prev[msgDoc.room],
+                        lastMessage: {
+                            senderId: msgDoc.name,
+                            content: msgDoc.message,
+                            timestamp: msgDoc.createdAt
+                        }
+                    }
+                };
+            });
+        });
+
         return () => {
             // Off tất cả các event khi component unmount
             socket.off("history", handleHistory);
@@ -415,8 +493,10 @@ const Chat = () => {
             // Off sự kiện mới đăng ký
             socket.off("userJoined");
 
-             socket.off("friendsList");
-             socket.off("friendsListUpdated");
+            socket.off("friendsList");
+            socket.off("friendsListUpdated");
+
+            socket.off("lastMessage");
         };
     }, [groupDetailsVisible, myname]);
 
@@ -432,6 +512,12 @@ const Chat = () => {
             setFriendInput("");
         }
     }, [friendModalVisible]);
+
+    // Thêm useEffect để đảm bảo activeChats được lưu khi thay đổi
+    useEffect(() => {
+        localStorage.setItem("activeChats", JSON.stringify(activeChats));
+    }, [activeChats]);
+
     // Hàm gửi tin nhắn
     const sendMessage = () => {
         if (!currentRoom) {
@@ -619,7 +705,7 @@ const Chat = () => {
 
     // Add searchUsers function
     const searchUsers = async (query) => {
-        return accounts.filter(acc => 
+        return accounts.filter(acc =>
             acc.username.toLowerCase().includes(query.toLowerCase()) ||
             (acc.fullname && acc.fullname.toLowerCase().includes(query.toLowerCase())) ||
             (acc.phone && acc.phone.toLowerCase().includes(query.toLowerCase()))
@@ -718,7 +804,7 @@ const Chat = () => {
                     handleAddFriend={handleAddFriend}
                     handleWithdrawFriendRequest={handleWithdrawFriendRequest}
                     requestedFriends={requestedFriends}               // THÊM
-                    setRequestedFriends={setRequestedFriends}  
+                    setRequestedFriends={setRequestedFriends}
                 />
             )}
         </div>

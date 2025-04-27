@@ -1,46 +1,98 @@
 import React from "react";
+import "./ChatList.css";
 
 const ChatList = ({ activeChats, handleRoomClick, onOpenGroupModal, activeRoom }) => {
+    const formatTime = (timestamp) => {
+        if (!timestamp) return "";
+        const date = new Date(timestamp);
+        const now = new Date();
+        const diff = now - date;
+        
+        // Nếu là hôm nay, chỉ hiện giờ:phút
+        if (diff < 24 * 60 * 60 * 1000) {
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+        // Nếu trong tuần này, hiện tên thứ
+        if (diff < 7 * 24 * 60 * 60 * 1000) {
+            return date.toLocaleDateString([], { weekday: 'short' });
+        }
+        // Nếu quá 1 tuần, hiện ngày/tháng
+        return date.toLocaleDateString([], { day: '2-digit', month: '2-digit' });
+    };
+
+    const renderLastMessage = (chat) => {
+        if (!chat.lastMessage) return "";
+        const { content, senderId } = chat.lastMessage;
+        const messagePreview = content.length > 30 ? content.substring(0, 30) + "..." : content;
+        
+        if (senderId === localStorage.getItem("username")) {
+            return `Bạn: ${messagePreview}`;
+        }
+        return messagePreview;
+    };
+
     return (
-        <div className="col-3 border-end" style={{ padding: "10px" }}>
-            <div className="d-flex justify-content-between align-items-center">
-                <h3>Chats</h3>
-                <button className="btn btn-primary" onClick={onOpenGroupModal}>
-                    +
+        <div className="chat-list-container">
+            <div className="chat-list-header">
+                <h3>Trò chuyện</h3>
+                <button className="btn-create-group" onClick={onOpenGroupModal}>
+                    <i className="fas fa-plus"></i>
                 </button>
             </div>
-            <ul id="chat_list_ul" className="list-group">
+            
+            <div className="chat-list">
                 {Object.keys(activeChats).map((room) => {
+                    const chat = activeChats[room];
                     const isActive = room === activeRoom;
+                    
                     return (
-                        <li
+                        <div
                             key={room}
-                            style={{
-                                cursor: "pointer",
-                                padding: "5px",
-                                borderBottom: "1px solid #ddd",
-                                backgroundColor: isActive ? "#f0f8ff" : "transparent", // Màu nền khác cho active room
-                            }}
+                            className={`chat-item ${isActive ? 'active' : ''}`}
                             onClick={() => handleRoomClick(room)}
                         >
-                            {activeChats[room].partner}
-                            {activeChats[room].unread > 0 && (
-                                <span
-                                    style={{
-                                        backgroundColor: "red",
-                                        color: "white",
-                                        borderRadius: "50%",
-                                        padding: "2px 5px",
-                                        marginLeft: "5px",
-                                    }}
-                                >
-                                    {Math.ceil(activeChats[room].unread)}
-                                </span>
-                            )}
-                        </li>
+                            <div className="chat-avatar">
+                                {chat.isGroup ? (
+                                    <div className="group-avatar">
+                                        <i className="fas fa-users"></i>
+                                    </div>
+                                ) : (
+                                    <img
+                                        src={chat.partnerAvatar}
+                                        alt={chat.partner}
+                                        onError={(e) => {
+                                            e.target.onerror = null;
+                                            e.target.src = "https://api.dicebear.com/7.x/initials/svg?seed=" + chat.partner;
+                                        }}
+                                    />
+                                )}
+                            </div>
+                            
+                            <div className="chat-info">
+                                <div className="chat-header">
+                                    <span className="chat-name">
+                                        {chat.isGroup ? chat.groupName || "Nhóm chat" : chat.partner}
+                                    </span>
+                                    {chat.lastMessage && (
+                                        <span className="chat-time">
+                                            {formatTime(chat.lastMessage.timestamp)}
+                                        </span>
+                                    )}
+                                </div>
+                                
+                                <div className="chat-preview">
+                                    <span className="last-message">{renderLastMessage(chat)}</span>
+                                    {chat.unread > 0 && (
+                                        <span className="unread-badge">
+                                            {Math.ceil(chat.unread)}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
                     );
                 })}
-            </ul>
+            </div>
         </div>
     );
 };
