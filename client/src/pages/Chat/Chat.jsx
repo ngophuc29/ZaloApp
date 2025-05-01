@@ -714,7 +714,7 @@ const Chat = () => {
 
     return (
         <div className="container-fluid">
-            <div className="row">
+            <div className="row d-flex flex-nowrap">
                 <NavigationPanel
                     activeTab={activeTab}
                     setActiveTab={setActiveTab}
