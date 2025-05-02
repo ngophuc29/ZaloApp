@@ -167,11 +167,36 @@ const Chat = () => {
             });
         };
 
+        // const handleMessageDeleted = (data) => {
+        //     const obj = JSON.parse(data);
+        //     setMessages((prev) => prev.filter((msg) => getMessageId(msg) !== obj.messageId));
+        // };
+        // Trong Chat.jsx - handleMessageDeleted function
         const handleMessageDeleted = (data) => {
-            const obj = JSON.parse(data);
-            setMessages((prev) => prev.filter((msg) => getMessageId(msg) !== obj.messageId));
-        };
+            const { messageId, room } = typeof data === 'string' ? JSON.parse(data) : data;
 
+            // Cập nhật danh sách tin nhắn
+            setMessages((prev) => prev.filter((msg) => getMessageId(msg) !== messageId));
+
+            // Cập nhật activeChats cho lastMessage
+            setActiveChats((prev) => {
+                const updated = { ...prev };
+                if (updated[room]) {
+                    const remainingMessages = messages.filter(msg => getMessageId(msg) !== messageId);
+                    if (remainingMessages.length > 0) {
+                        updated[room].lastMessage = {
+                            senderId: remainingMessages[remainingMessages.length - 1].name,
+                            content: remainingMessages[remainingMessages.length - 1].message,
+                            timestamp: remainingMessages[remainingMessages.length - 1].createdAt
+                        };
+                    } else {
+                        delete updated[room].lastMessage;
+                    }
+                }
+                localStorage.setItem("activeChats", JSON.stringify(updated));
+                return updated;
+            });
+        };
         const handleDeleteMessageResult = (data) => {
             alert(data.message);
         };
