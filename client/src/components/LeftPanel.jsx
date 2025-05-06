@@ -49,16 +49,23 @@ const LeftPanel = ({
     };
 
     const renderLastMessage = (chat) => {
-        if (!chat.lastMessage) return "";
-        const { content, senderId } = chat.lastMessage;
-        const messagePreview = content.length > 30 ? content.substring(0, 30) + "..." : content;
+        const lm = chat.lastMessage;
+        if (!lm) return "";
+
         const currentUser = localStorage.getItem("username");
-        
-        if (senderId === currentUser) {
-            return `Bạn: ${messagePreview}`;
-        }
-        return `${senderId}: ${messagePreview}`;
+        const sender = lm.senderId === currentUser ? "Bạn" : lm.senderId;
+
+        // Nếu có nội dung text thì hiển thị text, ngược lại hiển thị tệp đính kèm
+        const body = lm.content?.trim()
+            ? lm.content.length > 30
+                ? lm.content.substring(0, 30) + "..."
+                : lm.content
+            : "Đã gửi một tệp đính kèm";
+
+        return `${sender}: ${body}`;
     };
+
+
 
     return (
         <div className="col-3 border-end" style={{ padding: "10px" }}>
