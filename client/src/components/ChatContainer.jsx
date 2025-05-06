@@ -72,6 +72,7 @@ const ChatContainer = ({
                 name: myname,
                 message: message,
                 room: currentRoom,
+                createdAt: new Date().toISOString(),
             };
             sendMessage(msgObj);
             setMessage("");
@@ -496,7 +497,18 @@ const ChatContainer = ({
         sendMessage(fileMessage);
         setShowFileUploader(false);
     };
-    
+    const formatTime = (timestamp) => {
+        if (!timestamp) return "";
+        const date = new Date(timestamp);
+        const now = new Date();
+        const diff = now - date;
+
+        if (diff < 24 * 60 * 60 * 1000) {
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+
+        return date.toLocaleDateString([], { day: '2-digit', month: '2-digit' });
+    };
     return (
         <div className="col-9" style={{ padding: "10px", position: "relative",height: "100vh" }}>
             <h3 style={{ textAlign: 'left' }}>Chat Room: {currentRoom}</h3>
@@ -530,7 +542,6 @@ const ChatContainer = ({
                                 marginBottom: "10px",
                             }}
                         >
-                            {/* Nếu tin nhắn của bạn, hiển thị action container bên trái */}
                             {isMine && (
                                 <div
                                     style={{
@@ -554,7 +565,6 @@ const ChatContainer = ({
                                     ></i>
                                     {activeEmotionMsgId === getMessageId(msg) && (
                                         <div style={{
-
                                             display: "flex",
                                             top: '-22px',
                                             position: "absolute",
@@ -565,8 +575,6 @@ const ChatContainer = ({
                                             gap: "6px",
                                             padding: "9px",
                                             borderRadius: "20px",
-
-
                                         }}>
                                             {[1, 2, 3, 4, 5].map((em) => (
                                                 <i
@@ -591,8 +599,6 @@ const ChatContainer = ({
                                 </div>
                             )}
 
-                            {/* Chat Bubble */}
-                           
                             <div
                                 style={{
                                     background: isMine ? "#dcf8c6" : "#fff",
@@ -603,7 +609,6 @@ const ChatContainer = ({
                                     position: "relative",
                                 }}
                             >
-                                {/* Avatar + Name */}
                                 {msg.name !== myname && (
                                     <div style={{ display: "flex", alignItems: "center", marginBottom: "5px" }}>
                                         <img
@@ -621,70 +626,8 @@ const ChatContainer = ({
                                     </div>
                                 )}
 
-                                {/* Message content */}
                                 {msg.message && <p style={{ margin: 0 }}>{msg.message}</p>}
-                                {/* {msg.fileUrl && (
-                                    <div style={{ marginTop: "5px" }}>
-                                        {msg.fileType === 'image' ? (
-                                            <img
-                                                src={msg.fileUrl}
-                                                alt="uploaded"
-                                                style={{ maxWidth: "200px", borderRadius: "5px" }}
-                                            />
-                                        ) : msg.fileType === 'video' ? (
-                                            <div>
-                                                <video
-                                                    controls
-                                                    style={{ maxWidth: "200px", borderRadius: "5px" }}
-                                                    poster={msg.thumbnailUrl}
-                                                >
-                                                    <source src={msg.fileUrl} type="video/mp4" />
-                                                    Trình duyệt không hỗ trợ video
-                                                </video>
-                                            </div>
-                                        ) : (
-                                            <a
-                                                href={msg.fileUrl}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="btn btn-sm btn-outline-primary"
-                                            >
-                                                <i className="fas fa-download"></i> {msg.fileName || 'Tải xuống'}
-                                            </a>
-                                        )}
-                                    </div>
-                                )} */}
-                                {/* {msg.fileUrl && (
-                                    <div style={{ marginTop: "5px" }}>
-                                        {(msg.fileType === 'image' || /\.(jpeg|jpg|png|gif|webp)$/i.test(msg.fileUrl)) ? (
-                                            <img
-                                                src={msg.fileUrl}
-                                                alt="uploaded"
-                                                style={{ maxWidth: "200px", borderRadius: "5px" }}
-                                            />
-                                        ) : msg.fileType === 'video' ? (
-                                            <div>
-                                                <video
-                                                    controls
-                                                    style={{ maxWidth: "200px", borderRadius: "5px" }}
-                                                    poster={msg.thumbnailUrl}
-                                                >
-                                                    <source src={msg.fileUrl} type="video/mp4" />
-                                                    Trình duyệt không hỗ trợ video
-                                                </video>
-                                            </div>
-                                        ) : (
-                                            <a
-                                                href={msg.fileUrl}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="btn btn-sm btn-outline-primary"
-                                            >
-                                                <i className="fas fa-download"></i> {msg.fileName || 'Tải xuống'}
-                                            </a>
-                                        )}
-                                    </div>
-                                )} */}
+
                                 {msg.fileUrl && (
                                     <div style={{ marginTop: "5px" }}>
                                         {(msg.fileType === 'image' || /\.(jpeg|jpg|png|gif|webp)$/i.test(msg.fileUrl)) ? (
@@ -736,10 +679,13 @@ const ChatContainer = ({
                                         {emotions[msg.reaction - 1].icon}
                                     </span>
                                 )}
+
+                                {/* ✅ Thời gian gửi tin nhắn */}
+                                <div style={{ textAlign: "right", fontSize: "10px", color: "#888", marginTop: "4px" }}>
+                                    {formatTime(msg.createdAt)}
+                                </div>
                             </div>
 
-
-                            {/* Nếu tin nhắn của người khác, bạn có thể đặt action container bên phải */}
                             {!isMine && (
                                 <div
                                     style={{
@@ -763,16 +709,13 @@ const ChatContainer = ({
                                     ></i>
                                     {activeEmotionMsgId === getMessageId(msg) && (
                                         <div style={{
-                                            display: "flex"
-                                            ,
+                                            display: "flex",
                                             top: "-36px",
                                             position: "absolute",
                                             right: 0,
-                                            /* bottom: 35px, */
                                             backgroundColor: "aquamarine",
                                             alignItems: "center",
                                             gap: "6px",
-                                            padding: "-18px",
                                             borderRadius: "20px",
                                             left: "3px",
                                             height: '32px',
@@ -795,8 +738,6 @@ const ChatContainer = ({
                                     )}
                                 </div>
                             )}
-                            
-
                         </li>
                     );
                 })}
