@@ -3,10 +3,12 @@ import { Form, Input, Button, Checkbox, message, Row, Col, Card, Typography } fr
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { useGlobalContext } from '@/context/GlobalProvider';
 
 const { Text } = Typography;
 
 const Login = () => {
+  const { setIsLoggedIn } = useGlobalContext();
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const [loginError, setLoginError] = useState('');
@@ -25,9 +27,9 @@ const Login = () => {
       });
 
       if (response.status === 200) {
-        const { token, username } = response.data;
-        localStorage.setItem('token', token);
+        const { token, username } = response.data;        localStorage.setItem('token', token);
         localStorage.setItem("username", username);
+        setIsLoggedIn(true);
         message.success('Đăng nhập thành công');
         navigate('/chat');
       }

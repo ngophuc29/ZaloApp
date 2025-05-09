@@ -801,6 +801,7 @@ const Chat = () => {
                     myname={myname}
                     setGroupModalVisible={setGroupModalVisible}
                     handleCreateGroup={handleCreateGroup}
+                    friends={friends}
                 />
             )}
             {groupDetailsVisible && groupInfo && (
