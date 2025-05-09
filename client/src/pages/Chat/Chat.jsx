@@ -120,16 +120,24 @@ const Chat = () => {
                 });
                 return updated;
             });
-        };
-
-        const handleThread = (data) => {
+        };        const handleThread = (data) => {
             const obj = JSON.parse(data);
             const msgId = getMessageId(obj);
 
-            // Cập nhật messages state
             setMessages((prev) => {
-                if (prev.find((msg) => getMessageId(msg) === msgId)) return prev;
-                return [...prev, obj];
+                // Nếu là tin nhắn từ người khác
+                if (obj.name !== myname) {
+                    if (prev.find((msg) => getMessageId(msg) === msgId)) return prev;
+                    return [...prev, obj];
+                }
+                
+                // Nếu là tin nhắn của mình, cập nhật id từ server
+                return prev.map(msg => {
+                    if (msg.message === obj.message && msg.name === obj.name && !msg._id) {
+                        return { ...msg, _id: obj._id };
+                    }
+                    return msg;
+                });
             });
 
             // Luôn cập nhật lastMessage cho phòng chat, bất kể là phòng hiện tại hay không
@@ -199,14 +207,20 @@ const Chat = () => {
         };
         const handleDeleteMessageResult = (data) => {
             alert(data.message);
-        };
-
-        const handleEmotion = (data) => {
+        };        const handleEmotion = (data) => {
             const obj = JSON.parse(data);
             setMessages((prev) =>
-                prev.map((msg) =>
-                    getMessageId(msg) === obj.messageId ? { ...msg, reaction: obj.emotion } : msg
-                )
+                prev.map((msg) => {
+                    // Kiểm tra bằng id nếu có
+                    if (getMessageId(msg) === obj.messageId) {
+                        return { ...msg, reaction: obj.emotion };
+                    }
+                    // Hoặc kiểm tra bằng nội dung và người gửi nếu là tin nhắn mới
+                    if (!msg._id && msg.message === obj.message && msg.name === obj.sender) {
+                        return { ...msg, reaction: obj.emotion };
+                    }
+                    return msg;
+                })
             );
         };
 
@@ -722,9 +736,28 @@ const Chat = () => {
                 name: myname,
                 message: message,
                 room: currentRoom,
+                createdAt: new Date().toISOString()
             };
             setMessage("");
         }
+
+        // Add message to state immediately (optimistic update)
+        setMessages(prev => [...prev, messageObj]);
+        
+        // Update activeChats with the new message
+        setActiveChats(prev => {
+            const updated = { ...prev };
+            if (updated[currentRoom]) {
+                updated[currentRoom].lastMessage = {
+                    content: messageObj.message,
+                    senderId: myname,
+                    timestamp: messageObj.createdAt
+                };
+            }
+            return updated;
+        });
+
+        // Send to server
         socket.emit("message", JSON.stringify(messageObj));
     };
 
