@@ -102,15 +102,18 @@ const ChatContainer = ({
 
     // Gửi tin nhắn text (nếu message là string và không rỗng)
     const handleSend = () => {
-        if (typeof message === "string" && message.trim() !== "") {
-            const msgObj = {
+        if (typeof message === "string" && message.trim() !== "") {            const msgObj = {
                 id: Date.now(),
                 name: myname,
                 message: message,
                 room: currentRoom,
-                createdAt: new Date().toISOString(),
-                ...(replyingTo && { replyTo: replyingTo })
+                createdAt: new Date().toISOString()
             };
+            
+            // Chỉ thêm replyTo nếu đang reply một tin nhắn
+            if (replyingTo) {
+                msgObj.replyTo = replyingTo;
+            }
             sendMessage(msgObj);
             setMessage("");
         }
@@ -665,9 +668,7 @@ const ChatContainer = ({
                                         />
                                         <span style={{ fontWeight: "bold" }}>{msg.name}</span>
                                     </div>
-                                )}
-
-                                {msg.replyTo && (
+                                )}                                {msg.replyTo && msg.replyTo.id && msg.replyTo.name && msg.replyTo.message && (
                                     <div className="reply-preview" style={styles.replyPreview}>
                                         <span className="reply-to">Replying to {msg.replyTo.name}</span>
                                         <span className="reply-message" style={{
