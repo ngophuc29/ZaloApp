@@ -2,8 +2,43 @@ import React, { useEffect, useRef, useState } from "react";
 import EmojiPicker from "emoji-picker-react";
 import ImageUploader from "./ImageUploader"; // Component upload ảnh
 import Peer from "simple-peer/simplepeer.min.js";
-import './video.css'
+import './video.css';
+import './message-actions.css';
 import FileUploader from "./FileUploader";
+
+// Add CSS styles for reply functionality
+const styles = {
+    replyPreview: {
+        backgroundColor: '#f0f0f0',
+        padding: '5px 10px',
+        margin: '5px 0',
+        borderRadius: '5px',
+        borderLeft: '3px solid #007bff',
+    },
+    replyIndicator: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '5px 10px',
+        backgroundColor: '#f0f0f0',
+        borderRadius: '5px',
+        marginBottom: '10px',
+    },
+    messageActions: {
+        display: 'flex',
+        gap: '5px',
+        marginTop: '5px',
+    },
+    actionButton: {
+        padding: '2px 5px',
+        fontSize: '12px',
+        border: 'none',
+        borderRadius: '3px',
+        cursor: 'pointer',
+        backgroundColor: '#e0e0e0',
+    }
+};
+
 const ChatContainer = ({
     socket,
     currentRoom,
@@ -26,6 +61,7 @@ const ChatContainer = ({
     const [showImageUploader, setShowImageUploader] = useState(false);
     // Thêm state mới
     const [showFileUploader, setShowFileUploader] = useState(false);
+    const [replyingTo, setReplyingTo] = useState(null);
 
     // State quản lý cuộc gọi
     const [calling, setCalling] = useState(false);
@@ -66,19 +102,26 @@ const ChatContainer = ({
 
     // Gửi tin nhắn text (nếu message là string và không rỗng)
     const handleSend = () => {
-        if (typeof message === "string" && message.trim() !== "") {
-            const msgObj = {
+        if (typeof message === "string" && message.trim() !== "") {            const msgObj = {
                 id: Date.now(),
                 name: myname,
                 message: message,
                 room: currentRoom,
-                createdAt: new Date().toISOString(),
+                createdAt: new Date().toISOString()
             };
+            
+            // Chỉ thêm replyTo nếu đang reply một tin nhắn
+            if (replyingTo) {
+                msgObj.replyTo = replyingTo;
+            }
             sendMessage(msgObj);
             setMessage("");
         }
         // Ẩn emoji picker sau khi gửi
         setShowEmojiPicker(false);
+        if (replyingTo) {
+            setReplyingTo(null);
+        }
     };
 
     // Khi nhấn Enter, gọi handleSend
@@ -503,11 +546,23 @@ const ChatContainer = ({
         const now = new Date();
         const diff = now - date;
 
-        if (diff < 24 * 60 * 60 * 1000) {
+        if (diff < 24 * 60 * 60 * 0) {
             return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         }
 
         return date.toLocaleDateString([], { day: '2-digit', month: '2-digit' });
+    };
+    const handleReply = (msg) => {
+        setReplyingTo({
+            id: msg._id || msg.id,
+            name: msg.name,
+            message: msg.message
+        });
+        inputRef.current?.focus();
+    };
+
+    const handleCancelReply = () => {
+        setReplyingTo(null);
     };
     return (
         <div className="col-9" style={{ padding: "10px", position: "relative",height: "100vh" }}>
@@ -540,41 +595,35 @@ const ChatContainer = ({
                                 flexDirection: "row",
                                 justifyContent: isMine ? "flex-end" : "flex-start",
                                 marginBottom: "10px",
+                                position: "relative",
+                                alignItems: "center",
+                                gap: "8px"
                             }}
                         >
                             {isMine && (
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        flexDirection: "row",
-                                        alignItems: "center",
-                                        marginRight: "5px",
-                                        position: "relative"
-                                    }}
-                                >
-                                    <i
-                                        className="choose_emotion fa-regular fa-face-smile"
-                                        style={{ cursor: "pointer", marginBottom: "5px" }}
-                                        onClick={() =>
-                                            setActiveEmotionMsgId(
-                                                getMessageId(msg) === activeEmotionMsgId
-                                                    ? null
-                                                    : getMessageId(msg)
-                                            )
-                                        }
-                                    ></i>
+                                <div className="message-actions-container message-actions-left">
+                                    <i className="action-icon fa-solid fa-reply" 
+                                       onClick={() => handleReply(msg)} 
+                                       title="Reply"></i>
+                                    <i className="action-icon fa-regular fa-face-smile"
+                                       onClick={() => setActiveEmotionMsgId(
+                                           getMessageId(msg) === activeEmotionMsgId ? null : getMessageId(msg)
+                                       )}
+                                       title="Add reaction"></i>
+                                    <i className="action-icon fa-solid fa-trash" 
+                                       onClick={() => handleDeleteMessage(getMessageId(msg), msg.room)}
+                                       title="Delete"></i>
                                     {activeEmotionMsgId === getMessageId(msg) && (
-                                        <div style={{
+                                        <div className="emotion-picker" style={{
                                             display: "flex",
-                                            top: '-22px',
                                             position: "absolute",
-                                            right: "46px",
-                                            bottom: "35px",
-                                            backgroundColor: "aquamarine",
-                                            alignItems: "center",
-                                            gap: "6px",
-                                            padding: "9px",
+                                            top: "-36px",
+                                            left: "0",
+                                            backgroundColor: "#fff",
+                                            padding: "6px 12px",
                                             borderRadius: "20px",
+                                            boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                                            zIndex: 10
                                         }}>
                                             {[1, 2, 3, 4, 5].map((em) => (
                                                 <i
@@ -583,19 +632,13 @@ const ChatContainer = ({
                                                         handleChooseEmotion(getMessageId(msg), em);
                                                         setActiveEmotionMsgId(null);
                                                     }}
-                                                    style={{ margin: "0 2px", cursor: "pointer" }}
+                                                    style={{ margin: "0 2px", cursor: "pointer", fontSize: "16px" }}
                                                 >
                                                     {emotions[em - 1].icon}
                                                 </i>
                                             ))}
                                         </div>
                                     )}
-                                    <button
-                                        className="btn_delete"
-                                        onClick={() => handleDeleteMessage(getMessageId(msg), msg.room)}
-                                    >
-                                        X
-                                    </button>
                                 </div>
                             )}
 
@@ -607,6 +650,7 @@ const ChatContainer = ({
                                     maxWidth: "70%",
                                     boxShadow: "0 1px 2px rgba(0,0,0,0.15)",
                                     position: "relative",
+                                    order: isMine ? 2 : 1
                                 }}
                             >
                                 {msg.name !== myname && (
@@ -623,6 +667,22 @@ const ChatContainer = ({
                                             }}
                                         />
                                         <span style={{ fontWeight: "bold" }}>{msg.name}</span>
+                                    </div>
+                                )}                                {msg.replyTo && msg.replyTo.id && msg.replyTo.name && msg.replyTo.message && (
+                                    <div className="reply-preview" style={styles.replyPreview}>
+                                        <span className="reply-to">Replying to {msg.replyTo.name}</span>
+                                        <span className="reply-message" style={{
+                                            fontStyle: !messages.some(m => 
+                                                (m._id === msg.replyTo.id || m.id === msg.replyTo.id)
+                                            ) ? 'italic' : 'normal',
+                                            color: !messages.some(m => 
+                                                (m._id === msg.replyTo.id || m.id === msg.replyTo.id)
+                                            ) ? '#888' : '#666'
+                                        }}>
+                                            {!messages.some(m => 
+                                                (m._id === msg.replyTo.id || m.id === msg.replyTo.id)
+                                            ) ? "Tin nhắn đã bị xóa" : msg.replyTo.message}
+                                        </span>
                                     </div>
                                 )}
 
@@ -687,40 +747,26 @@ const ChatContainer = ({
                             </div>
 
                             {!isMine && (
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        alignItems: "flex-end",
-                                        marginLeft: "5px",
-                                        position: "relative",
-                                    }}
-                                >
-                                    <i
-                                        className="choose_emotion fa-regular fa-face-smile"
-                                        style={{ cursor: "pointer", marginBottom: "5px" }}
-                                        onClick={() =>
-                                            setActiveEmotionMsgId(
-                                                getMessageId(msg) === activeEmotionMsgId
-                                                    ? null
-                                                    : getMessageId(msg)
-                                            )
-                                        }
-                                    ></i>
+                                <div className="message-actions-container message-actions-right" style={{ order: 2 }}>
+                                    <i className="action-icon fa-solid fa-reply" 
+                                       onClick={() => handleReply(msg)} 
+                                       title="Reply"></i>
+                                    <i className="action-icon fa-regular fa-face-smile"
+                                       onClick={() => setActiveEmotionMsgId(
+                                           getMessageId(msg) === activeEmotionMsgId ? null : getMessageId(msg)
+                                       )}
+                                       title="Add reaction"></i>
                                     {activeEmotionMsgId === getMessageId(msg) && (
-                                        <div style={{
+                                        <div className="emotion-picker" style={{
                                             display: "flex",
-                                            top: "-36px",
                                             position: "absolute",
-                                            right: 0,
-                                            backgroundColor: "aquamarine",
-                                            alignItems: "center",
-                                            gap: "6px",
+                                            top: "-36px",
+                                            right: "0",
+                                            backgroundColor: "#fff",
+                                            padding: "6px 12px",
                                             borderRadius: "20px",
-                                            left: "3px",
-                                            height: '32px',
-                                            width: "fit-content",
-                                            padding: "9px",
+                                            boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                                            zIndex: 10
                                         }}>
                                             {[1, 2, 3, 4, 5].map((em) => (
                                                 <i
@@ -729,7 +775,7 @@ const ChatContainer = ({
                                                         handleChooseEmotion(getMessageId(msg), em);
                                                         setActiveEmotionMsgId(null);
                                                     }}
-                                                    style={{ margin: "0 2px", cursor: "pointer" }}
+                                                    style={{ margin: "0 2px", cursor: "pointer", fontSize: "16px" }}
                                                 >
                                                     {emotions[em - 1].icon}
                                                 </i>
@@ -778,6 +824,12 @@ const ChatContainer = ({
 
                 {/* Row for input and send */}
                 <div className="input-group message-input-group">
+                    {replyingTo && (
+                        <div className="reply-indicator" style={styles.replyIndicator}>
+                            <span>Replying to {replyingTo.name}: {replyingTo.message}</span>
+                            <button onClick={handleCancelReply} style={styles.actionButton}>Cancel</button>
+                        </div>
+                    )}
                     <input
                         type="text"
                         id="message"
@@ -912,3 +964,5 @@ const CallStatusUI = ({ message, buttons }) => (
     </div>
 );
 export default ChatContainer;
+
+
