@@ -120,7 +120,8 @@ const Chat = () => {
                 });
                 return updated;
             });
-        };        const handleThread = (data) => {
+        };
+        const handleThread = (data) => {
             const obj = JSON.parse(data);
             const msgId = getMessageId(obj);
 
