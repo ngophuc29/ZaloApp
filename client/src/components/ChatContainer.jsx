@@ -565,7 +565,13 @@ const ChatContainer = ({
         setReplyingTo(null);
     };
     return (
-        <div className="col-9" style={{ padding: "10px", position: "relative",height: "100vh" }}>
+        <div className="col-9" style={{
+            padding: "10px",
+            position: "relative",
+            display: "flex", 
+            flexDirection: "column",
+            height: "100vh", 
+        }}>
             <h3 style={{ textAlign: 'left' }}>Chat Room: {currentRoom}</h3>
             <button className="btn btn-secondary mb-2" onClick={onGetGroupDetails}>
                 Group Details
