@@ -16,7 +16,7 @@ import axios from "axios";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-const NavigationPanel = ({ activeTab, setActiveTab, navigate, myname, refreshContent }) => {
+const NavigationPanel = ({ activeTab, setActiveTab, navigate, myname, refreshContent, socket, setActiveChats }) => {
     const [isModalVisible, setIsModalVisible] = useState(false); // Modal thông tin cá nhân
     const [isEditMode, setIsEditMode] = useState(false);
     const [userInfo, setUserInfo] = useState({});
@@ -98,8 +98,47 @@ const NavigationPanel = ({ activeTab, setActiveTab, navigate, myname, refreshCon
             label: "Đăng xuất",
             section: true,
             action: () => {
-                localStorage.clear();
-                navigate("/login");
+                try {
+                    // 1. Ngắt kết nối socket trước
+                    socket.disconnect();
+
+                    // 2. Reset state trước khi xóa storage
+                    setActiveChats({});
+                    
+                    // 3. Xóa từng item trong localStorage một cách rõ ràng
+                    const itemsToRemove = [
+                        "activeChats",
+                        "currentRoom",
+                        "username",
+                        "user"
+                    ];
+                    
+                    itemsToRemove.forEach(item => {
+                        localStorage.removeItem(item);
+                    });
+
+                    // 4. Xóa các storage khác để đảm bảo
+                    localStorage.clear();
+                    sessionStorage.clear();
+
+                    // 5. Xóa cookies
+                    document.cookie.split(";").forEach(cookie => {
+                        const eqPos = cookie.indexOf("=");
+                        const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
+                        document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+                    });
+
+                    // 6. Log kiểm tra
+                    console.log("Kiểm tra sau khi xóa:");
+                    console.log("LocalStorage:", localStorage);
+                    console.log("ActiveChats còn không:", localStorage.getItem("activeChats"));
+
+                    // 7. Chuyển hướng sau khi đã xóa xong
+                    window.location.href = "/login";
+                } catch (error) {
+                    console.error("Lỗi khi đăng xuất:", error);
+                    alert("Đăng xuất thất bại. Vui lòng thử lại.");
+                }
             },
         },
     ];
@@ -205,8 +244,47 @@ const NavigationPanel = ({ activeTab, setActiveTab, navigate, myname, refreshCon
                                 <Button type="link" onClick={showModal}>Thông tin cá nhân</Button><br />
                                 <Button type="link" onClick={showChangePasswordModal}>Đổi mật khẩu</Button><br />
                                 <Button type="link" danger onClick={() => {
-                                    localStorage.clear();
-                                    navigate("/login");
+                                    try {
+                                        // 1. Ngắt kết nối socket trước
+                                        socket.disconnect();
+
+                                        // 2. Reset state trước khi xóa storage
+                                        setActiveChats({});
+                                        
+                                        // 3. Xóa từng item trong localStorage một cách rõ ràng
+                                        const itemsToRemove = [
+                                            "activeChats",
+                                            "currentRoom",
+                                            "username",
+                                            "user"
+                                        ];
+                                        
+                                        itemsToRemove.forEach(item => {
+                                            localStorage.removeItem(item);
+                                        });
+
+                                        // 4. Xóa các storage khác để đảm bảo
+                                        localStorage.clear();
+                                        sessionStorage.clear();
+
+                                        // 5. Xóa cookies
+                                        document.cookie.split(";").forEach(cookie => {
+                                            const eqPos = cookie.indexOf("=");
+                                            const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
+                                            document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+                                        });
+
+                                        // 6. Log kiểm tra
+                                        console.log("Kiểm tra sau khi xóa:");
+                                        console.log("LocalStorage:", localStorage);
+                                        console.log("ActiveChats còn không:", localStorage.getItem("activeChats"));
+
+                                        // 7. Chuyển hướng sau khi đã xóa xong
+                                        window.location.href = "/login";
+                                    } catch (error) {
+                                        console.error("Lỗi khi đăng xuất:", error);
+                                        alert("Đăng xuất thất bại. Vui lòng thử lại.");
+                                    }
                                 }}>
                                     Đăng xuất
                                 </Button>

@@ -120,7 +120,8 @@ const Chat = () => {
                 });
                 return updated;
             });
-        };        const handleThread = (data) => {
+        };
+        const handleThread = (data) => {
             const obj = JSON.parse(data);
             const msgId = getMessageId(obj);
 
@@ -778,6 +779,8 @@ const Chat = () => {
                     setActiveTab={setActiveTab}
                     navigate={navigate}
                     myname={myname}
+                    setActiveChats={setActiveChats}
+                    socket={socket}
                 />
                 <div className="col-11">
                     {activeTab === "chat" ? (
