@@ -9,19 +9,35 @@ import "./assets/css/style.css";
 import '@fortawesome/fontawesome-free/css/all.min.css';
 import { ToastContainer } from 'react-toastify';
 
+// PrivateRoute component to handle authentication
+const PrivateRoute = ({ children }) => {
+  const username = localStorage.getItem("username");
+  
+  if (!username) {
+    // Redirect them to the /login page
+    return <Navigate to="/login" replace />;
+  }
+
+  return children;
+};
+
 function App() {
-  const [username, setUsername] = useState(null);
-  const [isLoading, setIsLoading] = useState(true); // Đợi kiểm tra localStorage
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const savedUsername = localStorage.getItem("username");
-    if (savedUsername) {
-      setUsername(savedUsername);
+    // Check if we're on /chat without authentication
+    const path = window.location.pathname;
+    const username = localStorage.getItem("username");
+    
+    if (path === "/chat" && !username) {
+      window.location.href = "/login";
+      return;
     }
-    setIsLoading(false); // Đã kiểm tra xong
+    
+    setIsLoading(false);
   }, []);
 
-  if (isLoading) return null; // hoặc <LoadingSpinner /> nếu muốn
+  if (isLoading) return null;
 
   return (
     <Router>
@@ -50,13 +66,11 @@ function App() {
           <Route
             path="/chat"
             element={
-              username ? (
+              <PrivateRoute>
                 <DefaultLayout>
                   <Chat />
                 </DefaultLayout>
-              ) : (
-                <Navigate to="/login" />
-              )
+              </PrivateRoute>
             }
           />
 

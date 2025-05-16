@@ -32,13 +32,19 @@ const LoginRegister = () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     })
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error('Login failed');
+        }
+        return res.json();
+      })
       .then((result) => {
         if (result.statusCode) {
           alert(result.message);
         } else {
           localStorage.setItem("username", result.username);
-          navigate("/chat");
+          localStorage.setItem("user", JSON.stringify(result));
+          window.location.href = "/chat"; // Force a full page reload
         }
       })
       .catch((error) => {

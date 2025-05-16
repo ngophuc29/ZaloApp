@@ -779,6 +779,8 @@ const Chat = () => {
                     setActiveTab={setActiveTab}
                     navigate={navigate}
                     myname={myname}
+                    setActiveChats={setActiveChats}
+                    socket={socket}
                 />
                 <div className="col-11">
                     {activeTab === "chat" ? (
