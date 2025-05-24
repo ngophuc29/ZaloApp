@@ -627,7 +627,7 @@ const Chat = () => {
             return updated;
         });
         localStorage.setItem("currentRoom", roomId);
-        alert("Chat với " + targetUser);
+        // alert("Chat với " + targetUser);
     };
 
     const handleRoomClick = (room) => {
@@ -820,6 +820,9 @@ const Chat = () => {
                                     socket.emit("getGroupDetails", { roomId: currentRoom });
                                 }}
                                 socket={socket}
+                                handleAddFriend={handleAddFriend}
+                                friends={friends}
+                                requestedFriends={requestedFriends}
                             />
                         </div>
                     ) : (

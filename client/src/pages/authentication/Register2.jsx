@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Form, Input, Button, message, Row, Col, Card, Typography, DatePicker } from 'antd';
+import { Form, Input, Button, Row, Col, Card, Typography, DatePicker } from 'antd';
 import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import dayjs from 'dayjs';
-import { ToastContainer, toast } from 'react-toastify';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const { Title } = Typography;
 
@@ -71,7 +72,7 @@ const Register2 = () => {
                 email,
                 birthday,
                 fullname,
-                image: image || undefined,  // Không gửi ảnh nếu không có
+                image: image || undefined,
             });
 
             if (response.status === 201) {
@@ -83,7 +84,6 @@ const Register2 = () => {
         }
         setLoading(false);
     };
-
 
     return (
         <Row justify="center" align="middle" style={{ height: '100vh', background: '#f0f2f5' }}>
@@ -100,7 +100,14 @@ const Register2 = () => {
                         <Form.Item
                             name="username"
                             label="Tên đăng nhập"
-                            rules={[{ required: true, message: 'Vui lòng nhập tên đăng nhập!' }]}
+                            rules={[
+                                { required: true, message: 'Vui lòng nhập tên đăng nhập!' },
+                                { min: 4, message: 'Tên đăng nhập phải có ít nhất 4 ký tự!' },
+                                {
+                                    pattern: /^[^\s]+$/,
+                                    message: 'Tên đăng nhập không được chứa khoảng trắng!',
+                                },
+                            ]}
                         >
                             <Input placeholder="Tên đăng nhập" />
                         </Form.Item>
@@ -108,7 +115,14 @@ const Register2 = () => {
                         <Form.Item
                             name="password"
                             label="Mật khẩu"
-                            rules={[{ required: true, message: 'Vui lòng nhập mật khẩu!' }]}
+                            rules={[
+                                { required: true, message: 'Vui lòng nhập mật khẩu!' },
+                                { min: 6, message: 'Mật khẩu phải có ít nhất 6 ký tự!' },
+                                {
+                                    pattern: /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*?&]{6,}$/,
+                                    message: 'Mật khẩu phải bao gồm cả chữ và số!',
+                                },
+                            ]}
                         >
                             <Input.Password placeholder="Mật khẩu" />
                         </Form.Item>
@@ -116,7 +130,13 @@ const Register2 = () => {
                         <Form.Item
                             name="fullname"
                             label="Họ và tên"
-                            rules={[{ required: true, message: 'Vui lòng nhập họ tên!' }]}
+                            rules={[
+                                { required: true, message: 'Vui lòng nhập họ tên!' },
+                                {
+                                    pattern: /^[\p{L}\s]+$/u,
+                                    message: 'Họ tên chỉ được chứa chữ cái và khoảng trắng!',
+                                },
+                            ]}
                         >
                             <Input placeholder="Họ và tên" />
                         </Form.Item>
@@ -124,7 +144,13 @@ const Register2 = () => {
                         <Form.Item
                             name="phone"
                             label="Số điện thoại"
-                            rules={[{ required: true, message: 'Vui lòng nhập số điện thoại!' }]}
+                            rules={[
+                                { required: true, message: 'Vui lòng nhập số điện thoại!' },
+                                {
+                                    pattern: /^(0|\+84)[3|5|7|8|9]\d{8}$/,
+                                    message: 'Số điện thoại không hợp lệ!',
+                                },
+                            ]}
                         >
                             <Input placeholder="Số điện thoại" />
                         </Form.Item>
@@ -168,6 +194,7 @@ const Register2 = () => {
                             </Button>
                         </Form.Item>
                     </Form>
+                    <ToastContainer />
                 </Card>
             </Col>
         </Row>
