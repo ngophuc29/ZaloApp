@@ -709,6 +709,7 @@ const ChatContainer = ({
                     }}
                     activeChats={typeof activeChats !== 'undefined' ? activeChats : {}}
                     currentRoom={currentRoom}
+                    forwardMessageObj={forwardMessageObj}
                 />
             )}
         </div>
