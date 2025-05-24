@@ -84,6 +84,9 @@ const ChatContainer = ({
     emotions,
     getMessageId,
     onGetGroupDetails,
+    friends ,
+    requestedFriends ,
+    handleAddFriend,
 }) => {
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const [showImageUploader, setShowImageUploader] = useState(false);
@@ -269,18 +272,53 @@ const ChatContainer = ({
     const handleCancelReply = () => {
         setReplyingTo(null);
     };
+
+    // Thêm hàm kiểm tra group chat
+    const isGroupChat = (roomName) => {
+        return roomName && !roomName.includes('-');
+    };
+
+    // Hàm kiểm tra chat cá nhân
+    const isPrivateChat = (roomName) => roomName && roomName.includes('-');
+    // Lấy tên đối phương
+    const getPartnerName = () => {
+        if (!isPrivateChat(currentRoom)) return null;
+        const [u1, u2] = currentRoom.split('-');
+        return u1 === myname ? u2 : u1;
+    };
+    const partnerName = getPartnerName();
+    const isStranger = isPrivateChat(currentRoom) && partnerName && !friends.includes(partnerName);
+    const isRequested = isPrivateChat(currentRoom) && partnerName && requestedFriends && requestedFriends.includes(partnerName);
+
     return (
         <div className="col-9" style={{ padding: "10px", position: "relative", height: "100vh" }}>
             <h3 style={{ textAlign: 'left' }}>Chat Room: {currentRoom}</h3>
-            <button className="btn btn-secondary mb-2" onClick={onGetGroupDetails}>
-                Group Details
-            </button>
+            {/* Chỉ hiện Group Details nếu là group chat */}
+            {isGroupChat(currentRoom) && (
+                <button className="btn btn-secondary mb-2" onClick={onGetGroupDetails}>
+                    Group Details
+                </button>
+            )}
             {mediaError && (
                 <div className="alert alert-danger">
                     {mediaError}
                     <button className="btn btn-sm btn-link" onClick={() => setMediaError(null)}>
                         Đóng
                     </button>
+                </div>
+            )}
+
+            {/* Nếu là người lạ thì hiện thông báo và nút gửi lời mời */}
+            {isStranger && (
+                <div style={{ marginBottom: 10 }}>
+                    <span style={{ color: 'red', fontWeight: 'bold', marginRight: 8 }}>Người lạ</span>
+                    {isRequested ? (
+                        <button className="btn btn-secondary btn-sm" disabled>Đã gửi</button>
+                    ) : (
+                        <button className="btn btn-primary btn-sm" onClick={() => handleAddFriend && handleAddFriend(partnerName)}>
+                            Gửi lời mời kết bạn
+                        </button>
+                    )}
                 </div>
             )}
 

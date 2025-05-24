@@ -427,7 +427,7 @@ const Chat = () => {
       return updated;
     });
     localStorage.setItem("currentRoom", room);
-    alert("Chat với " + targetUser);
+    // alert("Chat với " + targetUser);
   };
 
   const handleCreateGroup = () => {
