@@ -125,7 +125,7 @@ const LeftPanel = ({
                                 src={account.image || "https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/User-avatar.svg/2048px-User-avatar.svg.png"}
                                 alt={account.username}
                                 className="chat-avatar"
-                             
+
                             />
                             <div className="user-info">
                                 <div className="username">  <span>UserName: </span> {account.username}</div>
@@ -136,54 +136,61 @@ const LeftPanel = ({
                 </div>
             ) : (
                 <div className="chat-list">
-                    {Object.keys(activeChats).map((room) => {
-                        const chat = activeChats[room];
-                        const isActive = room === activeRoom;
+                    {Object.entries(activeChats)
+                        .sort(([, a], [, b]) => {
+                            // Nếu không có lastMessage thì cho xuống cuối
+                            if (!a.lastMessage && !b.lastMessage) return 0;
+                            if (!a.lastMessage) return 1;
+                            if (!b.lastMessage) return -1;
+                            // So sánh thời gian lastMessage mới nhất
+                            return new Date(b.lastMessage.timestamp) - new Date(a.lastMessage.timestamp);
+                        })
+                        .map(([room, chat]) => {
+                            const isActive = room === activeRoom;
+                            return (
+                                <div
+                                    key={room}
+                                    className={`chat-item ${isActive ? 'active' : ''}`}
+                                    onClick={() => handleRoomClick(room)}
+                                >
+                                    <div className="chat-avatar">
+                                        {chat.isGroup ? (
+                                            <div className="group-avatar">
+                                                <FaUsers />
+                                            </div>
+                                        ) : (
+                                            <img
+                                                src={getAvatarByName(chat.partner)}
+                                                alt={chat.partner}
+                                                className="avatar"
+                                            />
+                                        )}
+                                    </div>
 
-                        return (
-                            <div
-                                key={room}
-                                className={`chat-item ${isActive ? 'active' : ''}`}
-                                onClick={() => handleRoomClick(room)}
-                            >
-                                <div className="chat-avatar">
-                                    {chat.isGroup ? (
-                                        <div className="group-avatar">
-                                            <FaUsers />
+                                    <div className="chat-info">
+                                        <div className="chat-header">
+                                            <span className="chat-name">
+                                                {chat.isGroup ? room : chat.partner}
+                                            </span>
+                                            {chat.lastMessage && (
+                                                <span className="chat-time">
+                                                    {formatTime(chat.lastMessage.timestamp)}
+                                                </span>
+                                            )}
                                         </div>
-                                    ) : (
-                                        <img
-                                            src={getAvatarByName(chat.partner)}
-                                            alt={chat.partner}
-                                            className="avatar"
-                                        />
-                                    )}
-                                </div>
 
-                                <div className="chat-info">
-                                    <div className="chat-header">
-                                        <span className="chat-name">
-                                            {chat.isGroup ? room : chat.partner}
-                                        </span>
-                                        {chat.lastMessage && (
-                                            <span className="chat-time">
-                                                {formatTime(chat.lastMessage.timestamp)}
-                                            </span>
-                                        )}
-                                    </div>
-
-                                    <div className="chat-preview">
-                                        <span className="last-message">{renderLastMessage(chat)}</span>
-                                        {chat.unread > 0 && (
-                                            <span className="unread-badge">
-                                                {Math.ceil(chat.unread)}
-                                            </span>
-                                        )}
+                                        <div className="chat-preview">
+                                            <span className="last-message">{renderLastMessage(chat)}</span>
+                                            {chat.unread > 0 && (
+                                                <span className="unread-badge">
+                                                    {chat.unread}
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        );
-                    })}
+                            );
+                        })}
                 </div>
             )}
         </div>

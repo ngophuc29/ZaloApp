@@ -68,10 +68,11 @@ const Chat = () => {
 
 
     useEffect(() => {
-        Object.keys(activeChats).forEach(roomId => {
+        const roomIds = Object.keys(activeChats);
+        roomIds.forEach(roomId => {
             socket.emit("getLastMessage", roomId);
         });
-    }, [activeChats]);
+    }, [Object.keys(activeChats).length]);
 
 
     const processedUnreadMessagesRef = useRef(new Set());
@@ -125,14 +126,13 @@ const Chat = () => {
         const handleThread = (data) => {
             const obj = JSON.parse(data);
             const msgId = getMessageId(obj);
-
             setMessages((prev) => {
                 // Nếu là tin nhắn từ người khác
                 if (obj.name !== myname) {
                     if (prev.find((msg) => getMessageId(msg) === msgId)) return prev;
                     return [...prev, obj];
                 }
-                
+
                 // Nếu là tin nhắn của mình, cập nhật id từ server
                 return prev.map(msg => {
                     if (msg.message === obj.message && msg.name === obj.name && !msg._id) {
@@ -142,27 +142,20 @@ const Chat = () => {
                 });
             });
 
-            // Luôn cập nhật lastMessage cho phòng chat, bất kể là phòng hiện tại hay không
+            // Luôn cập nhật lastMessage cho phòng chat
             setActiveChats((prev) => {
                 const updated = { ...prev };
                 if (updated[obj.room]) {
-                    // Cập nhật lastMessage
                     updated[obj.room].lastMessage = {
                         content: obj.message,
                         senderId: obj.name,
                         timestamp: new Date().toISOString()
                     };
-
-                    // Chỉ tăng unread nếu tin nhắn từ phòng khác
-                    if (obj.room !== currentRoomRef.current && msgId && !processedUnreadMessagesRef.current.has(msgId)) {
-                        processedUnreadMessagesRef.current.add(msgId);
-                        updated[obj.room].unread = (updated[obj.room].unread || 0) + 0.5;
-                    }
+                    // KHÔNG tăng unread ở đây!
                 } else {
-                    // Tạo mới nếu phòng chưa tồn tại
                     updated[obj.room] = {
                         partner: obj.room.includes("_") ? (obj.groupName || "Group Chat") : obj.name,
-                        unread: obj.room !== currentRoomRef.current ? 0.5 : 0,
+                        unread: 0, // KHÔNG tăng unread ở đây!
                         isGroup: obj.room.includes("_"),
                         lastMessage: {
                             content: obj.message,
@@ -171,7 +164,6 @@ const Chat = () => {
                         }
                     };
                 }
-                // Lưu vào localStorage sau mỗi lần cập nhật
                 localStorage.setItem("activeChats", JSON.stringify(updated));
                 return updated;
             });
@@ -209,7 +201,7 @@ const Chat = () => {
         };
         const handleDeleteMessageResult = (data) => {
             alert(data.message);
-        };        const handleEmotion = (data) => {
+        }; const handleEmotion = (data) => {
             const obj = JSON.parse(data);
             setMessages((prev) =>
                 prev.map((msg) => {
@@ -229,6 +221,7 @@ const Chat = () => {
         const handleNotification = (data) => {
             const obj = JSON.parse(data.message);
             const roomNotified = data.room;
+
             const msgId = getMessageId(obj);
             if (roomNotified.includes("_") && joinedRoomsRef.current.has(roomNotified)) return;
             if (roomNotified !== currentRoomRef.current && msgId && !processedUnreadMessagesRef.current.has(msgId)) {
@@ -237,15 +230,32 @@ const Chat = () => {
                     const updated = { ...prev };
                     if (updated[roomNotified]) {
                         updated[roomNotified].unread = (updated[roomNotified].unread || 0) + 0.5;
+                        // Cập nhật lastMessage
+
+                        updated[roomNotified].lastMessage = {
+                            content: obj.message,
+                            senderId: obj.name,
+                            timestamp: obj.createdAt || new Date().toISOString()
+                        };
                     } else {
                         const partnerName = roomNotified.includes("_") ? (obj.groupName || "Group Chat") : obj.name;
-                        updated[roomNotified] = { partner: partnerName, unread: 0.5, isGroup: roomNotified.includes("_") };
+                        updated[roomNotified] = {
+                            partner: partnerName,
+                            unread: 1,
+                            isGroup: roomNotified.includes("_"),
+                            lastMessage: {
+                                content: obj.message,
+                                senderId: obj.name,
+                                timestamp: obj.createdAt || new Date().toISOString()
+                            }
+                        };
                     }
                     localStorage.setItem("activeChats", JSON.stringify(updated));
                     return updated;
                 });
             }
         };
+
 
         const handleUserConversations = (data) => {
             const conversations = JSON.parse(data);
