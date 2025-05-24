@@ -58,3 +58,34 @@ li:hover .message-actions-container {
     overflow: hidden;
     text-overflow: ellipsis;
 }
+
+.highlight-reply {
+    display: inline-flex;
+    /* hoặc flex/inline-flex nếu cần */
+    animation: reply-zoom 2s ease-in-out;
+    z-index: 2;
+    position: relative;
+    transform-origin: center center;
+}
+
+@keyframes reply-zoom {
+    0% {
+        transform: scale(1);
+        box-shadow: none;
+    }
+
+    30% {
+        transform: scale(1, 1.6);
+        box-shadow: 0 0 24px 8px rgba(0, 123, 255, 0.15);
+    }
+
+    60% {
+        transform: scale(1, 1.6);
+        box-shadow: 0 0 24px 8px rgba(0, 123, 255, 0.15);
+    }
+
+    100% {
+        transform: scale(1);
+        box-shadow: none;
+    }
+}

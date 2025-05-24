@@ -844,6 +844,7 @@ const Chat = () => {
                                 handleKeyDown={handleKeyDown}
                                 inputRef={inputRef}
                                 message={message}
+                                setMessages={setMessages}
                                 setMessage={setMessage}
                                 handleDeleteMessage={handleDeleteMessage}
                                 handleChooseEmotion={handleChooseEmotion}

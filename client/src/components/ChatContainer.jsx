@@ -79,6 +79,7 @@ const ChatContainer = ({
     inputRef,
     message,
     setMessage,
+    setMessages,
     handleDeleteMessage,
     handleChooseEmotion,
     activeEmotionMsgId,
@@ -86,10 +87,11 @@ const ChatContainer = ({
     emotions,
     getMessageId,
     onGetGroupDetails,
-    friends ,
-    requestedFriends ,
+    friends,
+    requestedFriends,
     handleAddFriend,
     activeChats,
+
 }) => {
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const [showImageUploader, setShowImageUploader] = useState(false);
@@ -111,7 +113,14 @@ const ChatContainer = ({
     const [mediaError, setMediaError] = useState(null);
     const [userInfo, setUserInfo] = useState({});
     const [userList, setUserList] = useState([]);
-
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [hasMore, setHasMore] = useState(true);
+    const prevScrollHeightRef = useRef(0);
+    const pendingScrollToId = useRef(null);
+    const prevMessagesLength = useRef(messages.length);
+    const prevScrollTopRef = useRef(0);
+    const [justJoinedRoom, setJustJoinedRoom] = useState(false);
+    const prevLastMsgId = useRef();
     useEffect(() => {
         const storedUser = JSON.parse(localStorage.getItem("user")) || {};
         setUserInfo(storedUser);
@@ -189,21 +198,18 @@ const ChatContainer = ({
     };
 
     const messageContainerRef = useRef(null);
+    const messageRefs = useRef({});
 
-    useEffect(() => {
-        if (messageContainerRef.current) {
-            messageContainerRef.current.scrollTop = messageContainerRef.current.scrollHeight;
-        }
-    }, [messages]);
+    // useEffect(() => {
+    //     if (messageContainerRef.current) {
+    //         messageContainerRef.current.scrollTop = messageContainerRef.current.scrollHeight;
+    //     }
+    // }, [messages]);
 
 
 
 
     // Chuyển đổi camera trước/sau
-
-
-
-
 
 
     useEffect(() => {
@@ -295,6 +301,154 @@ const ChatContainer = ({
     const isStranger = isPrivateChat(currentRoom) && partnerName && !friends.includes(partnerName);
     const isRequested = isPrivateChat(currentRoom) && partnerName && requestedFriends && requestedFriends.includes(partnerName);
 
+    const scrollToMessage = (msgId) => {
+        const el = messageRefs.current[msgId];
+        if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+            el.classList.add("highlight-reply");
+            setTimeout(() => {
+                el.classList.remove("highlight-reply");
+            }, 1500);
+        }
+    };
+
+    const scrollToMessageOrLoad = (msgId) => {
+        const el = messageRefs.current[msgId];
+        if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+            el.classList.add("highlight-reply");
+            setTimeout(() => el.classList.remove("highlight-reply"), 1500);
+            pendingScrollToId.current = null;
+        } else if (hasMore && !loadingMore) {
+            pendingScrollToId.current = msgId;
+            handleLoadMore();
+        }
+    };
+    const handleLoadMore = () => {
+        if (!loadingMore && hasMore && messages.length > 0) {
+            const container = messageContainerRef.current;
+            if (container) {
+                prevScrollHeightRef.current = container.scrollHeight;
+                prevScrollTopRef.current = container.scrollTop;
+            }
+            const oldest = messages[0];
+            socket.emit('loadMoreMessages', {
+                room: currentRoom,
+                before: oldest.createdAt // ISO string
+            });
+            setLoadingMore(true);
+        }
+    };
+
+    useEffect(() => {
+        if (pendingScrollToId.current) {
+            const el = messageRefs.current[pendingScrollToId.current];
+            if (el) {
+                el.scrollIntoView({ behavior: "smooth", block: "center" });
+                el.classList.add("highlight-reply");
+                setTimeout(() => el.classList.remove("highlight-reply"), 1500);
+                pendingScrollToId.current = null;
+            } else if (hasMore && !loadingMore) {
+                handleLoadMore();
+            }
+        }
+    }, [messages.length, loadingMore]);
+
+
+    useEffect(() => {
+        if (!loadingMore) return;
+        const container = messageContainerRef.current;
+        if (!container) return;
+        if (prevScrollHeightRef.current && typeof prevScrollTopRef.current === 'number') {
+            setTimeout(() => {
+                const newScrollHeight = container.scrollHeight;
+                container.scrollTop = prevScrollTopRef.current + (newScrollHeight - prevScrollHeightRef.current);
+                prevScrollHeightRef.current = 0;
+                prevScrollTopRef.current = 0;
+                prevMessagesLength.current = messages.length;
+            }, 120);
+        } else {
+            prevScrollHeightRef.current = 0;
+            prevScrollTopRef.current = 0;
+            prevMessagesLength.current = messages.length;
+        }
+    }, [messages.length, loadingMore]);
+
+    useEffect(() => {
+        const container = messageContainerRef.current;
+        if (!container) return;
+
+        const handleScroll = () => {
+            if (
+                container.scrollTop <= 10 && // <-- nới điều kiện
+                !loadingMore &&
+                hasMore &&
+                messages.length > 0
+            ) {
+                prevScrollHeightRef.current = container.scrollHeight;
+                handleLoadMore();
+            }
+        };
+
+        container.addEventListener('scroll', handleScroll);
+        return () => container.removeEventListener('scroll', handleScroll);
+    }, [loadingMore, hasMore, messages.length, currentRoom]);
+
+    useEffect(() => {
+        const onMoreMessages = ({ room, messages: more }) => {
+            if (room === currentRoom) {
+                if (more.length === 0) setHasMore(false);
+                setMessages(prev => {
+                    // Gộp, loại trùng
+                    const all = [...more, ...prev];
+                    const unique = [];
+                    const seen = new Set();
+                    for (const m of all) {
+                        const id = m._id?.toString() || m.id?.toString();
+                        if (!seen.has(id)) {
+                            unique.push(m);
+                            seen.add(id);
+                        }
+                    }
+                    unique.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+                    return unique;
+                });
+                setLoadingMore(false); // <-- Dòng này rất quan trọng!
+            }
+        };
+        socket.on('moreMessages', onMoreMessages);
+        return () => socket.off('moreMessages', onMoreMessages);
+    }, [currentRoom, socket, hasMore]);
+
+    useEffect(() => {
+        setJustJoinedRoom(true);
+    }, [currentRoom]);
+    useEffect(() => {
+        if (justJoinedRoom) {
+            const container = messageContainerRef.current;
+            if (container && messages.length > 0) {
+                setTimeout(() => {
+                    container.scrollTop = container.scrollHeight;
+                    setJustJoinedRoom(false);
+                }, 0);
+            }
+        }
+        // eslint-disable-next-line
+    }, [justJoinedRoom, messages.length]);
+    useEffect(() => {
+        if (!messages.length) return;
+        const lastMsgId = messages[messages.length - 1]._id || messages[messages.length - 1].id;
+        // Nếu có tin nhắn mới ở cuối (khác với lần trước)
+        if (prevLastMsgId.current && lastMsgId !== prevLastMsgId.current) {
+            const container = messageContainerRef.current;
+            if (container) {
+                setTimeout(() => {
+                    container.scrollTop = container.scrollHeight;
+                }, 0);
+            }
+        }
+        prevLastMsgId.current = lastMsgId;
+    }, [messages.length]);
     return (
         <div className="col-9" style={{ padding: "10px", position: "relative", height: "100vh" }}>
             <h3 style={{ textAlign: 'left' }}>Chat Room: {currentRoom}</h3>
@@ -333,272 +487,270 @@ const ChatContainer = ({
                 className="list-group mb-2"
                 style={{ maxHeight: "83vh", overflowY: "auto" }}
             >
-                {messages.map((msg) => {
+                {messages.map((msg, idx) => {
                     const isMine = msg.name === myname;
-                    return (
-                        <li
-                            key={getMessageId(msg)}
-                            style={{
-                                display: "flex",
-                                flexDirection: "row",
-                                justifyContent: isMine ? "flex-end" : "flex-start",
-                                marginBottom: "10px",
-                                position: "relative",
-                                alignItems: "center",
-                                gap: "8px"
-                            }}
-                        >
-                            {/* Action bên trái (tin nhắn của mình) */}
-                            {isMine && (
-                                <div className="message-actions-container message-actions-left">
-                                    <i className="action-icon fa-solid fa-reply"
-                                        onClick={() => handleReply(msg)}
-                                        title="Reply"></i>
-                                    <i className="action-icon fa-regular fa-face-smile"
-                                        onClick={() => setActiveEmotionMsgId(
-                                            getMessageId(msg) === activeEmotionMsgId ? null : getMessageId(msg)
-                                        )}
-                                        title="Add reaction"></i>
-                                    <i className="action-icon fa-solid fa-trash"
-                                        onClick={() => handleDeleteMessage(getMessageId(msg), msg.room)}
-                                        title="Delete"></i>
-                                    <i className="action-icon fa-solid fa-share"
-                                        onClick={() => {
-                                            setForwardMessageObj(msg);
-                                            setShowForwardModal(true);
-                                        }}
-                                        title="Chuyển tiếp"
-                                        style={{ marginLeft: 4 }}
-                                    ></i>
-                                    {activeEmotionMsgId === getMessageId(msg) && (
-                                        <div className="emotion-picker" style={{
-                                            display: "flex",
-                                            position: "absolute",
-                                            top: "-36px",
-                                            left: "0",
-                                            backgroundColor: "#fff",
-                                            padding: "6px 12px",
-                                            borderRadius: "20px",
-                                            boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-                                            zIndex: 10
-                                        }}>
-                                            {[1, 2, 3, 4, 5].map((em) => (
-                                                <i
-                                                    key={em}
-                                                    onClick={() => {
-                                                        handleChooseEmotion(getMessageId(msg), em);
-                                                        setActiveEmotionMsgId(null);
-                                                    }}
-                                                    style={{ margin: "0 2px", cursor: "pointer", fontSize: "16px" }}
-                                                >
-                                                    {emotions[em - 1].icon}
-                                                </i>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                            {/* Action bên phải (tin nhắn của người khác) */}
-                            {!isMine && (
-                                <div className="message-actions-container message-actions-right" style={{ order: 2 }}>
-                                    <i className="action-icon fa-solid fa-reply"
-                                        onClick={() => handleReply(msg)}
-                                        title="Reply"></i>
-                                    <i className="action-icon fa-regular fa-face-smile"
-                                        onClick={() => setActiveEmotionMsgId(
-                                            getMessageId(msg) === activeEmotionMsgId ? null : getMessageId(msg)
-                                        )}
-                                        title="Add reaction"></i>
-                                    <i className="action-icon fa-solid fa-share"
-                                        onClick={() => {
-                                            setForwardMessageObj(msg);
-                                            setShowForwardModal(true);
-                                        }}
-                                        title="Chuyển tiếp"
-                                        style={{ marginLeft: 4 }}
-                                    ></i>
-                                    {activeEmotionMsgId === getMessageId(msg) && (
-                                        <div className="emotion-picker" style={{
-                                            display: "flex",
-                                            position: "absolute",
-                                            top: "-36px",
-                                            right: "0",
-                                            backgroundColor: "#fff",
-                                            padding: "6px 12px",
-                                            borderRadius: "20px",
-                                            boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-                                            zIndex: 10
-                                        }}>
-                                            {[1, 2, 3, 4, 5].map((em) => (
-                                                <i
-                                                    key={em}
-                                                    onClick={() => {
-                                                        handleChooseEmotion(getMessageId(msg), em);
-                                                        setActiveEmotionMsgId(null);
-                                                    }}
-                                                    style={{ margin: "0 2px", cursor: "pointer", fontSize: "16px" }}
-                                                >
-                                                    {emotions[em - 1].icon}
-                                                </i>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
+                    const prevMsg = messages[idx - 1];
+                    const msgDate = new Date(msg.createdAt);
+                    const prevMsgDate = prevMsg ? new Date(prevMsg.createdAt) : null;
+                    const showDate =
+                        !prevMsg ||
+                        msgDate.toDateString() !== prevMsgDate?.toDateString();
 
-                            <div
+                    return (
+                        <React.Fragment key={getMessageId(msg)}>
+                            {showDate && (
+                                <li
+                                    className="message-date-separator"
+                                    style={{
+                                        textAlign: "center",
+                                        color: "#888",
+                                        fontSize: "13px",
+                                        margin: "10px 0",
+                                        fontWeight: "bold",
+                                        background: "#f5f5f5",
+                                        borderRadius: "8px",
+                                        padding: "4px 0"
+                                    }}
+                                >
+                                    {msgDate.toLocaleDateString("vi-VN", {
+                                        weekday: "long",
+                                        year: "numeric",
+                                        month: "2-digit",
+                                        day: "2-digit"
+                                    })}
+                                </li>
+                            )}
+                            <li
+                                ref={el => {
+                                    if (el) messageRefs.current[getMessageId(msg)] = el;
+                                }}
                                 style={{
-                                    background: isMine ? "#dcf8c6" : "#fff",
-                                    padding: "10px",
-                                    borderRadius: "10px",
-                                    maxWidth: "70%",
-                                    boxShadow: "0 1px 2px rgba(0,0,0,0.15)",
+                                    display: "flex",
+                                    flexDirection: "row",
+                                    justifyContent: isMine ? "flex-end" : "flex-start",
+                                    marginBottom: "10px",
                                     position: "relative",
-                                    order: isMine ? 2 : 1
+                                    alignItems: "center",
+                                    gap: "8px"
                                 }}
                             >
-                                {msg.name !== myname && (
-                                    <div style={{ display: "flex", alignItems: "center", marginBottom: "5px" }}>
-                                        <img
-                                            src={getAvatarByName(msg.name)}
-                                            alt="avatar"
-                                            style={{
-                                                width: "24px",
-                                                height: "24px",
-                                                borderRadius: "50%",
-                                                marginRight: "6px",
-                                                objectFit: "cover"
+                                {/* Action bên trái (tin nhắn của mình) */}
+                                {isMine && (
+                                    <div className="message-actions-container message-actions-left">
+                                        <i className="action-icon fa-solid fa-reply"
+                                            onClick={() => handleReply(msg)}
+                                            title="Reply"></i>
+                                        <i className="action-icon fa-regular fa-face-smile"
+                                            onClick={() => setActiveEmotionMsgId(
+                                                getMessageId(msg) === activeEmotionMsgId ? null : getMessageId(msg)
+                                            )}
+                                            title="Add reaction"></i>
+                                        <i className="action-icon fa-solid fa-trash"
+                                            onClick={() => handleDeleteMessage(getMessageId(msg), msg.room)}
+                                            title="Delete"></i>
+                                        <i className="action-icon fa-solid fa-share"
+                                            onClick={() => {
+                                                setForwardMessageObj(msg);
+                                                setShowForwardModal(true);
                                             }}
-                                        />
-                                        <span style={{ fontWeight: "bold" }}>{msg.name}</span>
+                                            title="Chuyển tiếp"
+                                            style={{ marginLeft: 4 }}
+                                        ></i>
+                                        {activeEmotionMsgId === getMessageId(msg) && (
+                                            <div className="emotion-picker" style={{
+                                                display: "flex",
+                                                position: "absolute",
+                                                top: "-36px",
+                                                left: "0",
+                                                backgroundColor: "#fff",
+                                                padding: "6px 12px",
+                                                borderRadius: "20px",
+                                                boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                                                zIndex: 10
+                                            }}>
+                                                {[1, 2, 3, 4, 5].map((em) => (
+                                                    <i
+                                                        key={em}
+                                                        onClick={() => {
+                                                            handleChooseEmotion(getMessageId(msg), em);
+                                                            setActiveEmotionMsgId(null);
+                                                        }}
+                                                        style={{ margin: "0 2px", cursor: "pointer", fontSize: "16px" }}
+                                                    >
+                                                        {emotions[em - 1].icon}
+                                                    </i>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 )}
-                                {msg.replyTo && msg.replyTo.id && (msg.replyTo.message || msg.replyTo.fileUrl) && (() => {
-                                    // Kiểm tra xem tin nhắn gốc có còn trong messages không
-                                    const originalExists = messages.some(m =>
-                                        (m._id === msg.replyTo.id || m.id === msg.replyTo.id)
-                                    );
-
-                                    return (
-                                        <div className="reply-preview" style={styles.replyPreview}>
-                                            <span className="reply-to">Replying to {msg.replyTo.name}</span>
-
-                                            {/* Nếu là text */}
-                                            {msg.replyTo.message ? (
-                                                <span
-                                                    className="reply-message"
-                                                    style={{
-                                                        fontStyle: originalExists ? 'normal' : 'italic',
-                                                        color: originalExists ? '#666' : '#888'
-                                                    }}
-                                                >
-                                                    {originalExists ? msg.replyTo.message : "Tin nhắn đã bị xóa"}
-                                                </span>
-
-                                            ) : /* Nếu là file */
-                                                msg.replyTo.fileUrl ? (
-                                                    !originalExists ? (
-                                                        // File gốc đã bị xóa
-                                                        <span style={{ fontStyle: 'italic', color: '#888' }}>
-                                                            Tin nhắn đã bị xóa
-                                                        </span>
-                                                    ) : (
-                                                        // File gốc còn, render preview file
-                                                        <div className="reply-file-preview" style={{ marginTop: 4 }}>
-                                                            {/* Ảnh */}
-                                                            {( /\.(jpe?g|png|gif|webp)$/i ).test(msg.replyTo.fileUrl) ? (
-                                                                <img
-                                                                    src={msg.replyTo.fileUrl}
-                                                                    alt="reply-img"
-                                                                    style={{ width: 60, height: 60, borderRadius: 4 }}
-                                                                />
-                                                            )
-                        /* Video */ : ( /\.(mp4|webm|ogg)$/i ).test(msg.replyTo.fileUrl) ? (
-                                                                    <div className="reply-video-container" style={styles.replyVideoContainer}>
-                                                                        <video
-                                                                            src={msg.replyTo.fileUrl}
-                                                                            style={{ width: '100%', height: '100%', borderRadius: 4 }}
-                                                                            muted
-                                                                        />
-                                                                    </div>
-                                                                )
-                        /* Tài liệu khác */ : (
-                                                                        <span className="reply-file-text" style={styles.replyFileText}>
-                                                                            📄 {msg.replyTo.fileName || 'Tệp đính kèm'}
-                                                                        </span>
-                                                                    )}
-                                                        </div>
-                                                    )
-                                                ) : null}
-                                        </div>
-                                    );
-                                })()}
-
-
-                                {msg.message && <p style={{ margin: 0 }}>{msg.message}</p>}
-
-                                {msg.fileUrl && (
-                                    <div style={{ marginTop: "5px" }}>
-                                        {msg.fileType === 'image' || /\.(jpe?g|png|gif|webp)$/i.test(msg.fileUrl) ? (
-                                            <img
-                                                src={msg.fileUrl}
-                                                alt="uploaded"
-                                                style={{ maxWidth: "200px", borderRadius: "5px" }}
-                                            />
-                                        ) : msg.fileType === 'video' || /\.(mp4|webm|ogg)$/i.test(msg.fileUrl) ? (
-                                            <video
-                                                controls
-                                                style={{ maxWidth: "200px", borderRadius: "5px" }}
-                                            >
-                                                <source src={msg.fileUrl} />
-                                            </video>
-                                        ) : (
-                                            <div style={{ display: 'flex', alignItems: 'center' }}>
-                                                {/\.pdf$/i.test(msg.fileUrl) && <i className="fas fa-file-pdf" style={{ marginRight: 5, color: 'red' }}></i>}
-                                                {/\.(doc|docx)$/i.test(msg.fileUrl) && <i className="fas fa-file-word" style={{ marginRight: 5, color: 'blue' }}></i>}
-                                                {/\.(xls|xlsx)$/i.test(msg.fileUrl) && <i className="fas fa-file-excel" style={{ marginRight: 5, color: 'green' }}></i>}
-                                                {/\.(ppt|pptx)$/i.test(msg.fileUrl) && <i className="fas fa-file-powerpoint" style={{ marginRight: 5, color: 'orange' }}></i>}
-                                                {!/\.(pdf|doc|docx|xls|xlsx|ppt|pptx)$/i.test(msg.fileUrl) && <i className="fas fa-file" style={{ marginRight: 5 }}></i>}
-                                                <a
-                                                    href={msg.fileUrl}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    style={{ color: '#007bff' }}
-                                                >
-                                                            {msg.fileName || 'Tải xuống'}
-                                                            <span>
-
-                                                            {msg.fileSize ? `(${(msg.fileSize / 1024).toFixed(2)} KB)` : ''}
-                                                            </span>
-
-                                                </a>
+                                {/* Action bên phải (tin nhắn của người khác) */}
+                                {!isMine && (
+                                    <div className="message-actions-container message-actions-right" style={{ order: 2 }}>
+                                        <i className="action-icon fa-solid fa-reply"
+                                            onClick={() => handleReply(msg)}
+                                            title="Reply"></i>
+                                        <i className="action-icon fa-regular fa-face-smile"
+                                            onClick={() => setActiveEmotionMsgId(
+                                                getMessageId(msg) === activeEmotionMsgId ? null : getMessageId(msg)
+                                            )}
+                                            title="Add reaction"></i>
+                                        <i className="action-icon fa-solid fa-share"
+                                            onClick={() => {
+                                                setForwardMessageObj(msg);
+                                                setShowForwardModal(true);
+                                            }}
+                                            title="Chuyển tiếp"
+                                            style={{ marginLeft: 4 }}
+                                        ></i>
+                                        {activeEmotionMsgId === getMessageId(msg) && (
+                                            <div className="emotion-picker" style={{
+                                                display: "flex",
+                                                position: "absolute",
+                                                top: "-36px",
+                                                right: "0",
+                                                backgroundColor: "#fff",
+                                                padding: "6px 12px",
+                                                borderRadius: "20px",
+                                                boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                                                zIndex: 10
+                                            }}>
+                                                {[1, 2, 3, 4, 5].map((em) => (
+                                                    <i
+                                                        key={em}
+                                                        onClick={() => {
+                                                            handleChooseEmotion(getMessageId(msg), em);
+                                                            setActiveEmotionMsgId(null);
+                                                        }}
+                                                        style={{ margin: "0 2px", cursor: "pointer", fontSize: "16px" }}
+                                                    >
+                                                        {emotions[em - 1].icon}
+                                                    </i>
+                                                ))}
                                             </div>
                                         )}
                                     </div>
                                 )}
 
-                                {msg.reaction && (
-                                    <span
-                                        style={{
-                                            position: "absolute",
-                                            bottom: "-7px",
-                                            right: "4px",
-                                            backgroundColor: "blue",
-                                            borderRadius: "10px",
-                                            padding: "3px",
-                                            color: "#fff",
-                                        }}
-                                    >
-                                        {emotions[msg.reaction - 1].icon}
-                                    </span>
-                                )}
+                                <div
+                                    style={{
+                                        background: isMine ? "#dcf8c6" : "#fff",
+                                        padding: "10px",
+                                        borderRadius: "10px",
+                                        maxWidth: "70%",
+                                        boxShadow: "0 1px 2px rgba(0,0,0,0.15)",
+                                        position: "relative",
+                                        order: isMine ? 2 : 1
+                                    }}
+                                >
+                                    {msg.name !== myname && (
+                                        <div style={{ display: "flex", alignItems: "center", marginBottom: "5px" }}>
+                                            <img
+                                                src={getAvatarByName(msg.name)}
+                                                alt="avatar"
+                                                style={{
+                                                    width: "24px",
+                                                    height: "24px",
+                                                    borderRadius: "50%",
+                                                    marginRight: "6px",
+                                                    objectFit: "cover"
+                                                }}
+                                            />
+                                            <span style={{ fontWeight: "bold" }}>{msg.name}</span>
+                                        </div>
+                                    )}
+                                    {msg.replyTo && msg.replyTo.id && (msg.replyTo.message || msg.replyTo.fileUrl) && (
+                                        <div
+                                            className="reply-preview"
+                                            style={styles.replyPreview}
+                                            onClick={() => scrollToMessageOrLoad(msg.replyTo.id)}
+                                        >
+                                            <span className="reply-to">Replying to {msg.replyTo.name}</span>
+                                            {msg.replyTo.message ? (
+                                                <span className="reply-message">{msg.replyTo.message}</span>
+                                            ) : msg.replyTo.fileUrl ? (
+                                                <span className="reply-file">
+                                                    {msg.replyTo.fileType?.startsWith('image') ? (
+                                                        <img
+                                                            src={msg.replyTo.fileUrl}
+                                                            alt="reply-img"
+                                                            style={{ maxWidth: 60, maxHeight: 60, borderRadius: 4, marginRight: 6 }}
+                                                        />
+                                                    ) : (
+                                                        <a href={msg.replyTo.fileUrl} target="_blank" rel="noopener noreferrer">
+                                                            {msg.replyTo.fileName || 'Tệp đính kèm'}
+                                                        </a>
+                                                    )}
+                                                </span>
+                                            ) : null}
+                                        </div>
+                                    )}
 
-                                {/* ✅ Thời gian gửi tin nhắn */}
-                                <div style={{ textAlign: "right", fontSize: "10px", color: "#888", marginTop: "4px" }}>
-                                    {formatTime(msg.createdAt)}
+                                    {msg.message && <p style={{ margin: 0 }}>{msg.message}</p>}
+
+                                    {msg.fileUrl && (
+                                        <div style={{ marginTop: "5px" }}>
+                                            {msg.fileType === 'image' || /\.(jpe?g|png|gif|webp)$/i.test(msg.fileUrl) ? (
+                                                <img
+                                                    src={msg.fileUrl}
+                                                    alt="uploaded"
+                                                    style={{ maxWidth: "200px", borderRadius: "5px" }}
+                                                />
+                                            ) : msg.fileType === 'video' || /\.(mp4|webm|ogg)$/i.test(msg.fileUrl) ? (
+                                                <video
+                                                    controls
+                                                    style={{ maxWidth: "200px", borderRadius: "5px" }}
+                                                >
+                                                    <source src={msg.fileUrl} />
+                                                </video>
+                                            ) : (
+                                                <div style={{ display: 'flex', alignItems: 'center' }}>
+                                                    {/\.pdf$/i.test(msg.fileUrl) && <i className="fas fa-file-pdf" style={{ marginRight: 5, color: 'red' }}></i>}
+                                                    {/\.(doc|docx)$/i.test(msg.fileUrl) && <i className="fas fa-file-word" style={{ marginRight: 5, color: 'blue' }}></i>}
+                                                    {/\.(xls|xlsx)$/i.test(msg.fileUrl) && <i className="fas fa-file-excel" style={{ marginRight: 5, color: 'green' }}></i>}
+                                                    {/\.(ppt|pptx)$/i.test(msg.fileUrl) && <i className="fas fa-file-powerpoint" style={{ marginRight: 5, color: 'orange' }}></i>}
+                                                    {!/\.(pdf|doc|docx|xls|xlsx|ppt|pptx)$/i.test(msg.fileUrl) && <i className="fas fa-file" style={{ marginRight: 5 }}></i>}
+                                                    <a
+                                                        href={msg.fileUrl}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        style={{ color: '#007bff' }}
+                                                    >
+                                                        {msg.fileName || 'Tải xuống'}
+                                                        <span>
+
+                                                            {msg.fileSize ? `(${(msg.fileSize / 1024).toFixed(2)} KB)` : ''}
+                                                        </span>
+
+                                                    </a>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {msg.reaction && (
+                                        <span
+                                            style={{
+                                                position: "absolute",
+                                                bottom: "-7px",
+                                                right: "4px",
+                                                backgroundColor: "blue",
+                                                borderRadius: "10px",
+                                                padding: "3px",
+                                                color: "#fff",
+                                            }}
+                                        >
+                                            {emotions[msg.reaction - 1].icon}
+                                        </span>
+                                    )}
+
+                                    {/* ✅ Thời gian gửi tin nhắn */}
+                                    <div style={{ textAlign: "right", fontSize: "10px", color: "#888", marginTop: "4px" }}>
+                                        {formatTime(msg.createdAt)}
+                                    </div>
                                 </div>
-                            </div>
-                        </li>
+                            </li>
+                        </React.Fragment>
                     );
                 })}
             </ul>
