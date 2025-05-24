@@ -10,6 +10,7 @@ import GroupDetailsModal from "../../components/GroupDetailsModal";
 import FriendModal from "../../components/FriendModal";
 import Contacts from "./Contacts"; // Sử dụng Contacts component đã tạo
 import LeftPanel from "../../components/LeftPanel";
+import ForwardModal from "../../components/ForwardModal";
 
 // Khởi tạo socket (điều chỉnh URL nếu cần)
 const socket = io("http://localhost:5000");
@@ -742,23 +743,25 @@ const Chat = () => {
             setMessage("");
         }
 
-        // Add message to state immediately (optimistic update)
-        setMessages(prev => [...prev, messageObj]);
-        
-        // Update activeChats with the new message
-        setActiveChats(prev => {
-            const updated = { ...prev };
-            if (updated[currentRoom]) {
-                updated[currentRoom].lastMessage = {
-                    content: messageObj.message,
-                    senderId: myname,
-                    timestamp: messageObj.createdAt
-                };
-            }
-            return updated;
-        });
-
-        // Send to server
+        // Chỉ thêm vào state nếu là phòng hiện tại
+        if (messageObj.room === currentRoom) {
+            setMessages(prev => [...prev, messageObj]);
+        }
+        // Update activeChats với lastMessage nếu là phòng hiện tại
+        if (messageObj.room === currentRoom) {
+            setActiveChats(prev => {
+                const updated = { ...prev };
+                if (updated[currentRoom]) {
+                    updated[currentRoom].lastMessage = {
+                        content: messageObj.message,
+                        senderId: myname,
+                        timestamp: messageObj.createdAt
+                    };
+                }
+                return updated;
+            });
+        }
+        // Gửi lên server
         socket.emit("message", JSON.stringify(messageObj));
     };
 
@@ -770,6 +773,32 @@ const Chat = () => {
             (acc.phone && acc.phone.toLowerCase().includes(query.toLowerCase()))
         );
     };
+
+    useEffect(() => {
+        window.onForwardMessage = (msg, selectedRooms) => {
+            const filteredRooms = selectedRooms.filter(roomId => roomId !== currentRoom);
+            filteredRooms.forEach(roomId => {
+                // Tạo bản sao message, gán room mới và thêm trường forwardedFrom
+                const forwardMsg = {
+                    ...msg,
+                    id: Date.now() + Math.floor(Math.random() * 10000),
+                    room: roomId,
+                    forwardedFrom: {
+                        name: msg.name,
+                        room: msg.room,
+                        message: msg.message,
+                        fileUrl: msg.fileUrl,
+                        fileType: msg.fileType,
+                        fileName: msg.fileName
+                    },
+                    name: myname,
+                    createdAt: new Date().toISOString()
+                };
+                sendMessageHandler(forwardMsg);
+            });
+        };
+        return () => { window.onForwardMessage = null; };
+    }, [myname, sendMessageHandler, currentRoom]);
 
     return (
         <div className="container-fluid">
