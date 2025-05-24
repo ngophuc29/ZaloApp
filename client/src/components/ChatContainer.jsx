@@ -5,6 +5,8 @@ import Peer from "simple-peer/simplepeer.min.js";
 import './video.css';
 import './message-actions.css';
 import FileUploader from "./FileUploader";
+import FriendModal from "./FriendModal";
+import ForwardModal from "./ForwardModal";
 
 // Add CSS styles for reply functionality
 const styles = {
@@ -87,12 +89,15 @@ const ChatContainer = ({
     friends ,
     requestedFriends ,
     handleAddFriend,
+    activeChats,
 }) => {
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const [showImageUploader, setShowImageUploader] = useState(false);
     // Thêm state mới
     const [showFileUploader, setShowFileUploader] = useState(false);
     const [replyingTo, setReplyingTo] = useState(null);
+    const [showForwardModal, setShowForwardModal] = useState(false);
+    const [forwardMessageObj, setForwardMessageObj] = useState(null);
 
     // State quản lý cuộc gọi
     const [calling, setCalling] = useState(false);
@@ -343,6 +348,7 @@ const ChatContainer = ({
                                 gap: "8px"
                             }}
                         >
+                            {/* Action bên trái (tin nhắn của mình) */}
                             {isMine && (
                                 <div className="message-actions-container message-actions-left">
                                     <i className="action-icon fa-solid fa-reply"
@@ -356,12 +362,67 @@ const ChatContainer = ({
                                     <i className="action-icon fa-solid fa-trash"
                                         onClick={() => handleDeleteMessage(getMessageId(msg), msg.room)}
                                         title="Delete"></i>
+                                    <i className="action-icon fa-solid fa-share"
+                                        onClick={() => {
+                                            setForwardMessageObj(msg);
+                                            setShowForwardModal(true);
+                                        }}
+                                        title="Chuyển tiếp"
+                                        style={{ marginLeft: 4 }}
+                                    ></i>
                                     {activeEmotionMsgId === getMessageId(msg) && (
                                         <div className="emotion-picker" style={{
                                             display: "flex",
                                             position: "absolute",
                                             top: "-36px",
                                             left: "0",
+                                            backgroundColor: "#fff",
+                                            padding: "6px 12px",
+                                            borderRadius: "20px",
+                                            boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                                            zIndex: 10
+                                        }}>
+                                            {[1, 2, 3, 4, 5].map((em) => (
+                                                <i
+                                                    key={em}
+                                                    onClick={() => {
+                                                        handleChooseEmotion(getMessageId(msg), em);
+                                                        setActiveEmotionMsgId(null);
+                                                    }}
+                                                    style={{ margin: "0 2px", cursor: "pointer", fontSize: "16px" }}
+                                                >
+                                                    {emotions[em - 1].icon}
+                                                </i>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                            {/* Action bên phải (tin nhắn của người khác) */}
+                            {!isMine && (
+                                <div className="message-actions-container message-actions-right" style={{ order: 2 }}>
+                                    <i className="action-icon fa-solid fa-reply"
+                                        onClick={() => handleReply(msg)}
+                                        title="Reply"></i>
+                                    <i className="action-icon fa-regular fa-face-smile"
+                                        onClick={() => setActiveEmotionMsgId(
+                                            getMessageId(msg) === activeEmotionMsgId ? null : getMessageId(msg)
+                                        )}
+                                        title="Add reaction"></i>
+                                    <i className="action-icon fa-solid fa-share"
+                                        onClick={() => {
+                                            setForwardMessageObj(msg);
+                                            setShowForwardModal(true);
+                                        }}
+                                        title="Chuyển tiếp"
+                                        style={{ marginLeft: 4 }}
+                                    ></i>
+                                    {activeEmotionMsgId === getMessageId(msg) && (
+                                        <div className="emotion-picker" style={{
+                                            display: "flex",
+                                            position: "absolute",
+                                            top: "-36px",
+                                            right: "0",
                                             backgroundColor: "#fff",
                                             padding: "6px 12px",
                                             borderRadius: "20px",
@@ -445,14 +506,14 @@ const ChatContainer = ({
                                                         // File gốc còn, render preview file
                                                         <div className="reply-file-preview" style={{ marginTop: 4 }}>
                                                             {/* Ảnh */}
-                                                            {(/\.(jpe?g|png|gif|webp)$/i).test(msg.replyTo.fileUrl) ? (
+                                                            {( /\.(jpe?g|png|gif|webp)$/i ).test(msg.replyTo.fileUrl) ? (
                                                                 <img
                                                                     src={msg.replyTo.fileUrl}
                                                                     alt="reply-img"
                                                                     style={{ width: 60, height: 60, borderRadius: 4 }}
                                                                 />
                                                             )
-                        /* Video */ : (/\.(mp4|webm|ogg)$/i).test(msg.replyTo.fileUrl) ? (
+                        /* Video */ : ( /\.(mp4|webm|ogg)$/i ).test(msg.replyTo.fileUrl) ? (
                                                                     <div className="reply-video-container" style={styles.replyVideoContainer}>
                                                                         <video
                                                                             src={msg.replyTo.fileUrl}
@@ -537,45 +598,6 @@ const ChatContainer = ({
                                     {formatTime(msg.createdAt)}
                                 </div>
                             </div>
-
-                            {!isMine && (
-                                <div className="message-actions-container message-actions-right" style={{ order: 2 }}>
-                                    <i className="action-icon fa-solid fa-reply"
-                                        onClick={() => handleReply(msg)}
-                                        title="Reply"></i>
-                                    <i className="action-icon fa-regular fa-face-smile"
-                                        onClick={() => setActiveEmotionMsgId(
-                                            getMessageId(msg) === activeEmotionMsgId ? null : getMessageId(msg)
-                                        )}
-                                        title="Add reaction"></i>
-                                    {activeEmotionMsgId === getMessageId(msg) && (
-                                        <div className="emotion-picker" style={{
-                                            display: "flex",
-                                            position: "absolute",
-                                            top: "-36px",
-                                            right: "0",
-                                            backgroundColor: "#fff",
-                                            padding: "6px 12px",
-                                            borderRadius: "20px",
-                                            boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-                                            zIndex: 10
-                                        }}>
-                                            {[1, 2, 3, 4, 5].map((em) => (
-                                                <i
-                                                    key={em}
-                                                    onClick={() => {
-                                                        handleChooseEmotion(getMessageId(msg), em);
-                                                        setActiveEmotionMsgId(null);
-                                                    }}
-                                                    style={{ margin: "0 2px", cursor: "pointer", fontSize: "16px" }}
-                                                >
-                                                    {emotions[em - 1].icon}
-                                                </i>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
                         </li>
                     );
                 })}
@@ -674,7 +696,21 @@ const ChatContainer = ({
                 </div>
             )}
 
-
+            {/* Modal chuyển tiếp tin nhắn */}
+            {showForwardModal && (
+                <ForwardModal
+                    visible={showForwardModal}
+                    onClose={() => setShowForwardModal(false)}
+                    onForward={(selectedRooms) => {
+                        if (typeof window !== 'undefined' && window.onForwardMessage) {
+                            window.onForwardMessage(forwardMessageObj, selectedRooms);
+                        }
+                        setShowForwardModal(false);
+                    }}
+                    activeChats={typeof activeChats !== 'undefined' ? activeChats : {}}
+                    currentRoom={currentRoom}
+                />
+            )}
         </div>
     );
 };
