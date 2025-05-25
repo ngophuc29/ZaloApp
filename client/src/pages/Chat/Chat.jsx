@@ -52,6 +52,7 @@ const Chat = () => {
     const [friends, setFriends] = useState([]);
 
     const [requestedFriends, setRequestedFriends] = useState([]);
+    const [friendRequests, setFriendRequests] = useState([]);
 
     const inputRef = useRef(null);
     const myname = localStorage.getItem("username") || "Guest";
@@ -444,6 +445,8 @@ const Chat = () => {
         socket.on("newFriendRequest", (data) => {
             console.log("newFriendRequest received:", data);
             alert(`Bạn có lời mời kết bạn từ ${data.from}`);
+            // Cập nhật lại danh sách lời mời kết bạn ngay lập tức
+            socket.emit("getFriendRequests", myname);
         });
 
         // --- Lắng nghe sự kiện trả về khi thu hồi lời mời ---
@@ -808,6 +811,41 @@ const Chat = () => {
         return () => { window.onForwardMessage = null; };
     }, [myname, sendMessageHandler, currentRoom]);
 
+    useEffect(() => {
+        if (!socket || !myname) return;
+        const handleRespondResult = (data) => {
+            // Nếu mình là người gửi và bị từ chối thì xóa khỏi requestedFriends
+            if (data.action === 'rejected' && data.from && data.to && data.from === myname) {
+                setRequestedFriends(prev => prev.filter(u => u !== data.to));
+            }
+        };
+        socket.on('respondFriendRequestResult', handleRespondResult);
+        return () => {
+            socket.off('respondFriendRequestResult', handleRespondResult);
+        };
+    }, [socket, myname]);
+
+    useEffect(() => {
+        if (!socket || !myname || !currentRoom) return;
+        // Nếu là chat cá nhân thì luôn đồng bộ lại lời mời
+        if (currentRoom && currentRoom.includes('-')) {
+            socket.emit('getFriendRequests', myname);
+            socket.emit('getSentFriendRequests', myname);
+        }
+    }, [currentRoom, myname]);
+
+    useEffect(() => {
+        const onFriendRequests = (requests) => {
+            // Đảm bảo requests là mảng object {from, to}
+            setFriendRequests(requests);
+            if (typeof window !== 'undefined') window.friendRequests = requests;
+        };
+        socket.on("friendRequests", onFriendRequests);
+        return () => {
+            socket.off("friendRequests", onFriendRequests);
+        };
+    }, []);
+
     return (
         <div className="container-fluid">
             <div className="row">
@@ -862,6 +900,7 @@ const Chat = () => {
                                 friends={friends}
                                 requestedFriends={requestedFriends}
                                 setRequestedFriends={setRequestedFriends}
+                                friendRequests={friendRequests} // Truyền đúng prop này
                             />
                         </div>
                     ) : (
