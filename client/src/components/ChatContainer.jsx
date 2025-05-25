@@ -91,7 +91,7 @@ const ChatContainer = ({
     requestedFriends,
     handleAddFriend,
     activeChats,
-
+    setRequestedFriends,
 }) => {
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const [showImageUploader, setShowImageUploader] = useState(false);
@@ -449,6 +449,25 @@ const ChatContainer = ({
         }
         prevLastMsgId.current = lastMsgId;
     }, [messages.length]);
+
+    useEffect(() => {
+        if (!socket || !setRequestedFriends) return;
+        const handleWithdraw = ({ to, from }) => {
+            setRequestedFriends(prev => prev.filter(username => username !== partnerName));
+        };
+        socket.on('friendRequestWithdrawn', handleWithdraw);
+        return () => socket.off('friendRequestWithdrawn', handleWithdraw);
+    }, [socket, setRequestedFriends, partnerName]);
+
+    useEffect(() => {
+        if (!socket || !setRequestedFriends) return;
+        const handleAccept = ({ friend }) => {
+            setRequestedFriends(prev => prev.filter(username => username !== friend));
+        };
+        socket.on('friendAccepted', handleAccept);
+        return () => socket.off('friendAccepted', handleAccept);
+    }, [socket, setRequestedFriends]);
+
     return (
         <div className="col-9" style={{ padding: "10px", position: "relative", height: "100vh" }}>
             <h3 style={{ textAlign: 'left' }}>Chat Room: {currentRoom}</h3>
@@ -468,17 +487,29 @@ const ChatContainer = ({
             )}
 
             {/* Nếu là người lạ thì hiện thông báo và nút gửi lời mời */}
-            {isStranger && (
-                <div style={{ marginBottom: 10 }}>
-                    <span style={{ color: 'red', fontWeight: 'bold', marginRight: 8 }}>Người lạ</span>
-                    {isRequested ? (
+            {isStranger ? (
+                requestedFriends && requestedFriends.includes(partnerName) ? (
+                    <div style={{ marginBottom: 10 }}>
+                        <span style={{ color: 'red', fontWeight: 'bold', marginRight: 8 }}>Người lạ</span>
                         <button className="btn btn-secondary btn-sm" disabled>Đã gửi</button>
-                    ) : (
-                        <button className="btn btn-primary btn-sm" onClick={() => handleAddFriend && handleAddFriend(partnerName)}>
+                    </div>
+                ) : (
+                    <div style={{ marginBottom: 10 }}>
+                        <span style={{ color: 'red', fontWeight: 'bold', marginRight: 8 }}>Người lạ</span>
+                        <button className="btn btn-primary btn-sm" onClick={() => {
+                            if (handleAddFriend) handleAddFriend(partnerName);
+                            if (typeof setRequestedFriends === 'function') setRequestedFriends(prev => [...prev, partnerName]);
+                        }}>
                             Gửi lời mời kết bạn
                         </button>
-                    )}
-                </div>
+                    </div>
+                )
+            ) : (
+                isRequested && (
+                    <div style={{ marginBottom: 10 }}>
+                        <button className="btn btn-secondary btn-sm" disabled>Đã gửi</button>
+                    </div>
+                )
             )}
 
             <ul

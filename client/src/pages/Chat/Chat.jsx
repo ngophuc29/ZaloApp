@@ -757,20 +757,18 @@ const Chat = () => {
         if (messageObj.room === currentRoom) {
             setMessages(prev => [...prev, messageObj]);
         }
-        // Update activeChats với lastMessage nếu là phòng hiện tại
-        if (messageObj.room === currentRoom) {
-            setActiveChats(prev => {
-                const updated = { ...prev };
-                if (updated[currentRoom]) {
-                    updated[currentRoom].lastMessage = {
-                        content: messageObj.message,
-                        senderId: myname,
-                        timestamp: messageObj.createdAt
-                    };
-                }
-                return updated;
-            });
-        }
+        // Luôn cập nhật activeChats với lastMessage cho phòng nhận tin nhắn
+        setActiveChats(prev => {
+            const updated = { ...prev };
+            if (updated[messageObj.room]) {
+                updated[messageObj.room].lastMessage = {
+                    content: messageObj.message,
+                    senderId: myname,
+                    timestamp: messageObj.createdAt
+                };
+            }
+            return updated;
+        });
         // Gửi lên server
         socket.emit("message", JSON.stringify(messageObj));
     };
@@ -863,6 +861,7 @@ const Chat = () => {
                                 handleAddFriend={handleAddFriend}
                                 friends={friends}
                                 requestedFriends={requestedFriends}
+                                setRequestedFriends={setRequestedFriends}
                             />
                         </div>
                     ) : (
