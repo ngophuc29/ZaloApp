@@ -89,6 +89,7 @@ const ChatContainer = ({
     onGetGroupDetails,
     friends,
     requestedFriends,
+    friendRequests, // <-- thêm prop này
     handleAddFriend,
     activeChats,
     setRequestedFriends,
@@ -298,6 +299,19 @@ const ChatContainer = ({
         return u1 === myname ? u2 : u1;
     };
     const partnerName = getPartnerName();
+    // Xác định trạng thái lời mời kết bạn
+    let friendRequestStatus = null;
+    let friendRequestObj = null;
+    if (isPrivateChat(currentRoom) && partnerName && !friends.includes(partnerName)) {
+        if (requestedFriends && requestedFriends.includes(partnerName)) {
+            friendRequestStatus = 'sent';
+        } else if (friendRequests && friendRequests.some(r => r.from === partnerName && r.to === myname)) {
+            friendRequestStatus = 'received';
+            friendRequestObj = friendRequests.find(r => r.from === partnerName && r.to === myname);
+        } else {
+            friendRequestStatus = null; // Người lạ - Gửi lời mời
+        }
+    }
     const isStranger = isPrivateChat(currentRoom) && partnerName && !friends.includes(partnerName);
     const isRequested = isPrivateChat(currentRoom) && partnerName && requestedFriends && requestedFriends.includes(partnerName);
 
@@ -486,30 +500,32 @@ const ChatContainer = ({
                 </div>
             )}
 
-            {/* Nếu là người lạ thì hiện thông báo và nút gửi lời mời */}
-            {isStranger ? (
-                requestedFriends && requestedFriends.includes(partnerName) ? (
-                    <div style={{ marginBottom: 10 }}>
-                        <span style={{ color: 'red', fontWeight: 'bold', marginRight: 8 }}>Người lạ</span>
+            {/* Nếu là người lạ thì hiện thông báo và nút gửi lời mời hoặc chấp nhận/thu hồi */}
+            {isStranger && (
+                <div style={{ marginBottom: 10 }}>
+                    <span style={{ color: 'red', fontWeight: 'bold', marginRight: 8 }}>Người lạ</span>
+                    {friendRequestStatus === 'sent' ? (
                         <button className="btn btn-secondary btn-sm" disabled>Đã gửi</button>
-                    </div>
-                ) : (
-                    <div style={{ marginBottom: 10 }}>
-                        <span style={{ color: 'red', fontWeight: 'bold', marginRight: 8 }}>Người lạ</span>
+                    ) : friendRequestStatus === 'received' ? (
+                        <>
+                            <button className="btn btn-success btn-sm" style={{ marginRight: 8 }} onClick={() => {
+                                if (socket && friendRequestObj) {
+                                    socket.emit('respondFriendRequest', { requestId: friendRequestObj._id || friendRequestObj.id, action: 'accepted' });
+                                }
+                            }}>Chấp nhận</button>
+                            <button className="btn btn-danger btn-sm" onClick={() => {
+                                if (socket && friendRequestObj) {
+                                    socket.emit('respondFriendRequest', { requestId: friendRequestObj._id || friendRequestObj.id, action: 'rejected' });
+                                }
+                            }}>Từ chối</button>
+                        </>
+                    ) : (
                         <button className="btn btn-primary btn-sm" onClick={() => {
                             if (handleAddFriend) handleAddFriend(partnerName);
-                            if (typeof setRequestedFriends === 'function') setRequestedFriends(prev => [...prev, partnerName]);
-                        }}>
-                            Gửi lời mời kết bạn
-                        </button>
-                    </div>
-                )
-            ) : (
-                isRequested && (
-                    <div style={{ marginBottom: 10 }}>
-                        <button className="btn btn-secondary btn-sm" disabled>Đã gửi</button>
-                    </div>
-                )
+                            if (typeof setRequestedFriends === 'function') setRequestedFriends(prev => prev.includes(partnerName) ? prev : [...prev, partnerName]);
+                        }}>Gửi lời mời kết bạn</button>
+                    )}
+                </div>
             )}
 
             <ul
