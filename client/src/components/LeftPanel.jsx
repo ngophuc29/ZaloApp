@@ -138,10 +138,10 @@ const LeftPanel = ({
                 <div className="chat-list">
                     {Object.entries(activeChats)
                         .sort(([, a], [, b]) => {
-                            // Nếu không có lastMessage thì cho xuống cuối
+                            // Nếu không có lastMessage thì cho lên đầu
                             if (!a.lastMessage && !b.lastMessage) return 0;
-                            if (!a.lastMessage) return 1;
-                            if (!b.lastMessage) return -1;
+                            if (!a.lastMessage) return -1;
+                            if (!b.lastMessage) return 1;
                             // So sánh thời gian lastMessage mới nhất
                             return new Date(b.lastMessage.timestamp) - new Date(a.lastMessage.timestamp);
                         })

@@ -502,9 +502,22 @@ const ChatContainer = ({
         };
     }, []);
 
+    // Hàm lấy tên hiển thị phòng chat (giống mobile)
+    const getDisplayName = (roomName, myname) => {
+        if (!roomName) return '';
+        if (roomName.includes('-')) {
+            const names = roomName.split('-');
+            return names.find(n => n !== myname) || names[0];
+        } else if (roomName.includes('_')) {
+            return roomName.split('_')[0];
+        } else {
+            return roomName;
+        }
+    };
+
     return (
         <div className="col-9" style={{ padding: "10px", position: "relative", height: "100vh" }}>
-            <h3 style={{ textAlign: 'left' }}>{currentRoom}</h3>
+            <h3 style={{ textAlign: 'left' }}>{getDisplayName(currentRoom, myname)}</h3>
             {/* Chỉ hiện Group Details nếu là group chat */}
             {isGroupChat(currentRoom) && (
                 <button className="btn btn-secondary mb-2" onClick={onGetGroupDetails}>
