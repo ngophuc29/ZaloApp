@@ -1,4 +1,6 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
+import { FaSearch, FaUserPlus, FaUsers } from "react-icons/fa";
+import "./LeftPanel.css"; // We'll create this file next
 
 const LeftPanel = ({
     searchFilter,
@@ -11,100 +13,223 @@ const LeftPanel = ({
     setFriendModalVisible,
     onOpenGroupModal,
 }) => {
+    const [userList, setUserList] = useState([]);
+    const [inputValue, setInputValue] = useState(""); // New state for tracking input
     const isSearching = searchFilter.trim().length > 0;
 
+    useEffect(() => {
+        fetch("http://localhost:5000/api/accounts")
+            .then((res) => res.json())
+            .then((data) => {
+                setUserList(data);
+            })
+            .catch((err) => console.error("Error fetching accounts:", err));
+    }, []);
+
+    // Handle input change
+    const handleInputChange = (e) => {
+        const value = e.target.value;
+        setInputValue(value);
+        
+        // Only update search filter if it's a complete phone number (exactly 10 digits)
+        // Or clear if input is empty
+        if (value === "") {
+            setSearchFilter("");
+        } else if (/^\d{10}$/.test(value)) {
+            // Only search when exactly 10 digits (complete phone number)
+            setSearchFilter(value);
+        } else {
+            // If we had a previous search but now typing something new, clear results
+            if (searchFilter !== "") {
+                setSearchFilter("");
+            }
+        }
+    };
+
+    // Handle key press for search
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter' && inputValue.trim()) {
+            setSearchFilter(inputValue);
+        }
+    };
+
+    // Handle search close
+    const handleClearSearch = () => {
+        setInputValue("");
+        setSearchFilter("");
+    };
+
+    const getAvatarByName = (name) => {
+        const user = userList.find((u) => u.username === name);
+        return user?.image || "https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/User-avatar.svg/2048px-User-avatar.svg.png";
+    };
+
+    const formatTime = (timestamp) => {
+        if (!timestamp) return "";
+        const date = new Date(timestamp);
+        const now = new Date();
+        const diff = now - date;
+
+        // Nếu là hôm nay, chỉ hiện giờ:phút
+        if (diff < 24 * 60 * 60 * 1000) {
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+        // Nếu trong tuần này, hiện tên thứ
+        if (diff < 7 * 24 * 60 * 60 * 1000) {
+            return date.toLocaleDateString([], { weekday: 'short' });
+        }
+        // Nếu quá 1 tuần, hiện ngày/tháng
+        return date.toLocaleDateString([], { day: '2-digit', month: '2-digit' });
+    };
+
+    const renderLastMessage = (chat) => {
+        const lm = chat.lastMessage;
+        if (!lm) return "";
+
+        const currentUser = localStorage.getItem("username");
+        const sender = lm.senderId === currentUser ? "Bạn" : lm.senderId;
+
+        // Nếu có nội dung text thì hiển thị text, ngược lại hiển thị tệp đính kèm
+        const body = lm.content?.trim()
+            ? lm.content.length > 30
+                ? lm.content.substring(0, 30) + "..."
+                : lm.content
+            : "Đã gửi một tệp đính kèm";
+
+        return `${sender}: ${body}`;
+    };
+
+
+
     return (
-        <div className="col-3 border-end" style={{ padding: "10px" }}>
-            {/* Ô search và nút (Kết bạn/Đóng) */}
-            <div className="mb-3 d-flex">
-                <input
-                    type="text"
-                    id="search_user"
-                    className="form-control"
-                    placeholder="Search user by name"
-                    value={searchFilter}
-                    onChange={(e) => setSearchFilter(e.target.value)}
-                />
+        <div className="col-3 border-end left-panel" style={{ padding: "10px" }}>
+            {/* Search Bar & Buttons */}
+            <div className="mb-3 d-flex align-items-center">
+                <div className="input-group">
+                    <span className="input-group-text bg-white">
+                        <FaSearch />
+                    </span>
+                    <input
+                        type="text"
+                        className="form-control"
+                        placeholder="Nhập đủ số điện thoại hoặc nhấn Enter"
+                        value={inputValue}
+                        onChange={handleInputChange}
+                        onKeyDown={handleKeyDown}
+                    />
+                </div>
+
                 {isSearching ? (
                     <button
                         className="btn btn-danger ms-2"
-                        onClick={() => setSearchFilter("")}
+                        onClick={handleClearSearch}
                     >
                         Đóng
                     </button>
                 ) : (
-                    <button
-                        className="btn btn-success ms-2"
-                        onClick={() => setFriendModalVisible(true)}
-                    >
-                        Kết bạn
-                    </button>
+                    <>
+                        <button
+                            className="btn btn-light ms-2"
+                            onClick={() => setFriendModalVisible(true)}
+                            title="Kết bạn"
+                        >
+                            <FaUserPlus />
+                        </button>
+                        <button
+                            className="btn btn-light ms-2"
+                            onClick={onOpenGroupModal}
+                            title="Tạo nhóm"
+                        >
+                            <FaUsers />
+                        </button>
+                    </>
                 )}
             </div>
 
             {/* Danh sách bên dưới */}
             {isSearching ? (
-                // Khi đang search: hiển thị danh sách user lọc được
-                <ul className="list-unstyled">
-                    {filteredAccounts.map((account, idx) => (
-                        <li
-                            key={idx}
-                            style={{ cursor: "pointer", marginBottom: "10px" }}
-                            onClick={() => handleUserClick(account.username)}
-                        >
-                            <div className="d-flex">
-                                <span>UserName: </span>
-                                <p className="ms-2">{account.username}</p>
+                <div className="search-results">
+                    {filteredAccounts.length > 0 ? (
+                        filteredAccounts.map((account, idx) => (
+                            <div
+                                key={idx}
+                                className="search-item"
+                                style={{ cursor: "pointer", marginBottom: "10px" }}
+                                onClick={() => handleUserClick(account.username)}
+                            >
+                                <img
+                                    src={account.image || "https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/User-avatar.svg/2048px-User-avatar.svg.png"}
+                                    alt={account.username}
+                                    className="chat-avatar"
+
+                                />
+                                <div className="user-info">
+                                    <div className="username">  <span>UserName: </span> {account.username}</div>
+                                    <div className="fullname">  <span>FullName : </span> {account.fullname}</div>
+                                </div>
                             </div>
-                            <div className="d-flex">
-                                <span>FullName: </span>
-                                <p className="ms-2">{account.fullname}</p>
-                            </div>
-                        </li>
-                    ))}
-                </ul>
+                        ))
+                    ) : (
+                        <div className="no-results">Không tìm thấy số điện thoại này</div>
+                    )}
+                </div>
             ) : (
-                // Khi không search: hiển thị danh sách chat (vẫn cho phép chuyển room)
-                <div>
-                    <div className="d-flex justify-content-between align-items-center">
-                        <h3>Chats</h3>
-                        <button className="btn btn-primary" onClick={onOpenGroupModal}>
-                            +
-                        </button>
-                    </div>
-                    <ul id="chat_list_ul" className="list-group">
-                        {Object.keys(activeChats).map((room) => {
+                <div className="chat-list">
+                    {Object.entries(activeChats)
+                        .sort(([, a], [, b]) => {
+                            // Nếu không có lastMessage thì cho lên đầu
+                            if (!a.lastMessage && !b.lastMessage) return 0;
+                            if (!a.lastMessage) return -1;
+                            if (!b.lastMessage) return 1;
+                            // So sánh thời gian lastMessage mới nhất
+                            return new Date(b.lastMessage.timestamp) - new Date(a.lastMessage.timestamp);
+                        })
+                        .map(([room, chat]) => {
                             const isActive = room === activeRoom;
                             return (
-                                <li
+                                <div
                                     key={room}
-                                    style={{
-                                        cursor: "pointer",
-                                        padding: "5px",
-                                        borderBottom: "1px solid #ddd",
-                                        backgroundColor: isActive ? "#f0f8ff" : "transparent",
-                                        listStyle:"none"
-                                    }}
+                                    className={`chat-item ${isActive ? 'active' : ''}`}
                                     onClick={() => handleRoomClick(room)}
                                 >
-                                    {activeChats[room].partner}
-                                    {activeChats[room].unread > 0 && (
-                                        <span
-                                            style={{
-                                                backgroundColor: "red",
-                                                color: "white",
-                                                borderRadius: "50%",
-                                                padding: "2px 5px",
-                                                marginLeft: "5px",
-                                            }}
-                                        >
-                                            {Math.ceil(activeChats[room].unread)}
-                                        </span>
-                                    )}
-                                </li>
+                                    <div className="chat-avatar">
+                                        {chat.isGroup ? (
+                                            <div className="group-avatar">
+                                                <FaUsers />
+                                            </div>
+                                        ) : (
+                                            <img
+                                                src={getAvatarByName(chat.partner)}
+                                                alt={chat.partner}
+                                                className="avatar"
+                                            />
+                                        )}
+                                    </div>
+
+                                    <div className="chat-info">
+                                        <div className="chat-header">
+                                            <span className="chat-name">
+                                                {chat.isGroup ? room : chat.partner}
+                                            </span>
+                                            {chat.lastMessage && (
+                                                <span className="chat-time">
+                                                    {formatTime(chat.lastMessage.timestamp)}
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        <div className="chat-preview">
+                                            <span className="last-message">{renderLastMessage(chat)}</span>
+                                            {chat.unread > 0 && (
+                                                <span className="unread-badge">
+                                                    {chat.unread}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
                             );
                         })}
-                    </ul>
                 </div>
             )}
         </div>
