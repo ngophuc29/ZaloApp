@@ -27,6 +27,7 @@ const Contacts = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [activeMenu, setActiveMenu] = useState("Danh sách bạn bè");
     const [userList, setUserList] = useState([]);
+    const [groupChats, setGroupChats] = useState([]);
     const myUsername = localStorage.getItem("username") || "Guest";
 
     useEffect(() => {
@@ -90,6 +91,16 @@ const Contacts = () => {
             socket.emit("getFriendRequests", myUsername);
         });
 
+        // Lắng nghe danh sách nhóm từ socket
+        socket.on("userConversations", (data) => {
+            try {
+                const parsed = JSON.parse(data);
+                setGroupChats(parsed.groupChats || []);
+            } catch (e) {
+                setGroupChats([]);
+            }
+        });
+
         return () => {
             // Cleanup tất cả listeners
             socket.off("registerUser");
@@ -102,6 +113,7 @@ const Contacts = () => {
             socket.off("cancelFriendResult");
             socket.off("friendRequestWithdrawn");
             socket.off("friendAccepted");
+            socket.off("userConversations");
         };
     }, [myUsername]);
 
@@ -111,6 +123,8 @@ const Contacts = () => {
             socket.emit("getFriends", myUsername);
         } else if (activeMenu === "Lời mời kết bạn") {
             socket.emit("getFriendRequests", myUsername);
+        } else if (activeMenu === "Danh sách nhóm và cộng đồng") {
+            socket.emit("getUserConversations", myUsername);
         }
     }, [activeMenu, myUsername]);
 
@@ -371,6 +385,103 @@ const Contacts = () => {
                                         </div>
                                     );
                                 })
+                            )}
+                        </div>
+                    </>
+                )}
+
+                {activeMenu === "Danh sách nhóm và cộng đồng" && (
+                    <>
+                        <div
+                            style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                marginBottom: "20px",
+                            }}
+                        >
+                            <h2 style={{ margin: 0 }}>Danh sách nhóm và cộng đồng</h2>
+                            <span style={{ color: "#555" }}>Tổng: {groupChats.length}</span>
+                        </div>
+                        <div
+                            style={{
+                                background: "#fff",
+                                borderRadius: "10px",
+                                padding: "20px",
+                                boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
+                            }}
+                        >
+                            {groupChats.length === 0 ? (
+                                <p style={{ fontStyle: "italic", color: "#888" }}>
+                                    Bạn chưa tham gia nhóm nào.
+                                </p>
+                            ) : (
+                                // Sắp xếp theo tên nhóm và nhóm theo chữ cái đầu
+                                (() => {
+                                    const grouped = groupChats.reduce((acc, group) => {
+                                        const name = group.groupName || group.name || group.roomId;
+                                        const c = name.charAt(0).toUpperCase();
+                                        if (!acc[c]) acc[c] = [];
+                                        acc[c].push(group);
+                                        return acc;
+                                    }, {});
+                                    const sortedLetters = Object.keys(grouped).sort();
+                                    return sortedLetters.map((letter) => (
+                                        <div key={letter} style={{ marginBottom: "20px" }}>
+                                            <h4
+                                                style={{
+                                                    color: "#333",
+                                                    borderBottom: "1px solid #eee",
+                                                    paddingBottom: "6px",
+                                                    marginBottom: "10px",
+                                                }}
+                                            >
+                                                {letter}
+                                            </h4>
+                                            {grouped[letter] 
+                                                .sort((a, b) =>
+                                                    (a.groupName || "").localeCompare(b.groupName || "")
+                                                )
+                                                .map((group) => (
+                                                    <div
+                                                        key={group.roomId}
+                                                        style={{
+                                                            padding: "12px 0",
+                                                            borderBottom: "1px solid #f3f3f3",
+                                                            display: "flex",
+                                                            alignItems: "center",
+                                                            gap: "16px",
+                                                        }}
+                                                    >
+                                                        <div
+                                                            style={{
+                                                                width: 48,
+                                                                height: 48,
+                                                                borderRadius: "50%",
+                                                                background: "#e6f4ff",
+                                                                display: "flex",
+                                                                alignItems: "center",
+                                                                justifyContent: "center",
+                                                                fontWeight: 700,
+                                                                fontSize: 22,
+                                                                color: "#007aff",
+                                                            }}
+                                                        >
+                                                            {(group.groupName || "G").charAt(0).toUpperCase()}
+                                                        </div>
+                                                        <div style={{ flex: 1 }}>
+                                                            <div style={{ fontWeight: 600, color: "#222" }}>
+                                                                {group.groupName}
+                                                            </div>
+                                                            <div style={{ fontSize: 13, color: "#888" }}>
+                                                                Thành viên: {group.members?.length || 0}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                        </div>
+                                    ));
+                                })()
                             )}
                         </div>
                     </>

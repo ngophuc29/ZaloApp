@@ -859,7 +859,7 @@ const Chat = () => {
 
     return (
         <div className="container-fluid">
-            <div className="row">
+            <div className="row d-flex flex-nowgrap">
                 <NavigationPanel
                     activeTab={activeTab}
                     setActiveTab={setActiveTab}
@@ -868,7 +868,7 @@ const Chat = () => {
                     setActiveChats={setActiveChats}
                     socket={socket}
                 />
-                <div className="col-11">
+                <div className="col">
                     {activeTab === "chat" ? (
                         <div className="row">
                             <LeftPanel
