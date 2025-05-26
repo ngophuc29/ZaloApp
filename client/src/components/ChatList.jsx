@@ -1,6 +1,7 @@
 import React from "react";
 import "./ChatList.css";
 
+
 const ChatList = ({ activeChats, handleRoomClick, onOpenGroupModal, activeRoom }) => {
     const formatTime = (timestamp) => {
         if (!timestamp) return "";

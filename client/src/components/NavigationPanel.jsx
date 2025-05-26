@@ -1,14 +1,13 @@
 // NavigationPanel.js
 import React, { useState, useEffect } from "react";
+import { DatePicker } from 'antd';
+import dayjs from 'dayjs';
+
 import {
     FaComments,
     FaUserFriends,
     FaSignOutAlt,
-    FaCloudUploadAlt,
-    FaCloud,
-    FaMobileAlt,
-    FaBriefcase,
-    FaCog
+
 } from "react-icons/fa";
 import { Avatar, Button, Popover, Tooltip, Modal, Input, message } from 'antd';
 import moment from "moment";
@@ -87,11 +86,7 @@ const NavigationPanel = ({ activeTab, setActiveTab, navigate, myname, refreshCon
     const navItems = [
         { key: "chat", icon: <FaComments />, label: "Tin nhắn", action: () => setActiveTab("chat") },
         { key: "contacts", icon: <FaUserFriends />, label: "Danh bạ", action: () => setActiveTab("contacts") },
-        { key: "upload", icon: <FaCloudUploadAlt />, label: "Tải lên" },
-        { key: "cloud", icon: <FaCloud />, label: "Cloud", action: () => setActiveTab("cloud") },
-        { key: "mobile", icon: <FaMobileAlt />, label: "Mobile", action: () => setActiveTab("mobile") },
-        { key: "work", icon: <FaBriefcase />, label: "Công việc", action: () => setActiveTab("work") },
-        { key: "settings", icon: <FaCog />, label: "Cài đặt", action: () => setActiveTab("settings") },
+        
         {
             key: "logout",
             icon: <FaSignOutAlt />,
@@ -291,8 +286,8 @@ const NavigationPanel = ({ activeTab, setActiveTab, navigate, myname, refreshCon
                             </div>
                         }
                         trigger="click"
-                        visible={popoverVisible}
-                        onVisibleChange={setPopoverVisible}
+                         open={popoverVisible}
+                        onOpenChange={setPopoverVisible}
                         placement="right"
                     >
                         <img
@@ -326,67 +321,88 @@ const NavigationPanel = ({ activeTab, setActiveTab, navigate, myname, refreshCon
             </div>
 
             {/* Modal thông tin người dùng */}
-            <Modal
-                title="Thông tin người dùng"
-                visible={isModalVisible}
-                onCancel={handleCancel}
-                footer={isEditMode ? (
-                    <>
-                        <Button onClick={() => setIsEditMode(false)}>Hủy</Button>
-                        <Button type="primary" onClick={handleSave}>Lưu</Button>
-                    </>
-                ) : (
-                    <Button type="primary" onClick={() => setIsEditMode(true)}>Cập nhật</Button>
-                )}
-            >
-                {isEditMode ? (
-                    <>
-                        <label>Họ và tên:</label>
-                        <Input
-                            value={formData.fullname}
-                            onChange={e => setFormData({ ...formData, fullname: e.target.value })}
-                        />
+       <Modal
+    title="Thông tin người dùng"
+     open={isModalVisible}
+    onCancel={handleCancel}
+    footer={
+        isEditMode ? (
+            <>
+                <Button onClick={() => setIsEditMode(false)}>Hủy</Button>
+                <Button type="primary" onClick={handleSave}>Lưu</Button>
+            </>
+        ) : (
+            <Button type="primary" onClick={() => setIsEditMode(true)}>Cập nhật</Button>
+        )
+    }
+>
+    {isEditMode ? (
+        <>
+            <div className="mb-2">
+                <label>Họ và tên:</label>
+                <Input
+                    value={formData.fullname}
+                    onChange={e => setFormData({ ...formData, fullname: e.target.value })}
+                />
+            </div>
 
-                        <label className="mt-2">Ngày sinh:</label>
-                        <input
-                            type="date"
-                            className="form-control"
-                            value={formData.birthday}
-                            onChange={(e) => setFormData({ ...formData, birthday: e.target.value })}
-                        />
+           
+<div className="mb-2">
+    <label>Ngày sinh:</label>
+    <DatePicker
+        className="w-100"
+        value={formData.birthday ? dayjs(formData.birthday) : null}
+        onChange={(date, dateString) => {
+            setFormData({ ...formData, birthday: dateString });
+        }}
+        disabledDate={(current) => {
+            // Không cho chọn ngày sau hôm nay
+            return current && current > dayjs().endOf('day');
+        }}
+        format="YYYY-MM-DD"
+    />
+</div>
 
-                        <label className="mt-2">Avatar:</label>
-                        <input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => {
-                                const file = e.target.files[0];
-                                if (!file) return;
-                                const reader = new FileReader();
-                                reader.onload = (event) => {
-                                    setFormData({ ...formData, image: event.target.result });
-                                };
-                                reader.readAsDataURL(file);
-                            }}
-                        />
-                        {formData.image && <Avatar size={64} src={formData.image} className="mt-2" />}
-                    </>
-                ) : (
-                    <>
-                        <p><strong>Họ và tên:</strong> {userInfo.fullname || 'Không có thông tin'}</p>
-                        <p><strong>Email:</strong> {userInfo.email || 'Không có thông tin'}</p>
-                        <p><strong>Số điện thoại:</strong> {userInfo.phone || 'Không có thông tin'}</p>
-                        <p><strong>Ngày sinh:</strong> {userInfo.birthday ? new Date(userInfo.birthday).toLocaleDateString('vi-VN') : 'Không có thông tin'}</p>
-                        <p><strong>Avatar:</strong></p>
-                        <Avatar size={64} src={userInfo.image || "https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/User-avatar.svg/2048px-User-avatar.svg.png"} />
-                    </>
+            <div className="mb-2">
+                <label>Avatar:</label>
+                <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                            setFormData({ ...formData, image: event.target.result });
+                        };
+                        reader.readAsDataURL(file);
+                    }}
+                />
+                {formData.image && (
+                    <Avatar size={64} src={formData.image} className="mt-2" />
                 )}
-            </Modal>
+            </div>
+        </>
+    ) : (
+        <>
+            <p><strong>Họ và tên:</strong> {userInfo.fullname || 'Không có thông tin'}</p>
+            <p><strong>Email:</strong> {userInfo.email || 'Không có thông tin'}</p>
+            <p><strong>Số điện thoại:</strong> {userInfo.phone || 'Không có thông tin'}</p>
+            <p><strong>Ngày sinh:</strong> {userInfo.birthday ? new Date(userInfo.birthday).toLocaleDateString('vi-VN') : 'Không có thông tin'}</p>
+            <p><strong>Avatar:</strong></p>
+            <Avatar
+                size={64}
+                src={userInfo.image || "https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/User-avatar.svg/2048px-User-avatar.svg.png"}
+            />
+        </>
+    )}
+</Modal>
+
 
             {/* Modal Đổi mật khẩu */}
             <Modal
                 title="Đổi mật khẩu"
-                visible={isChangePasswordVisible}
+                 open={isChangePasswordVisible}
                 onCancel={() => setIsChangePasswordVisible(false)}
                 footer={[
                     <Button key="cancel" onClick={() => setIsChangePasswordVisible(false)}>Hủy</Button>,
