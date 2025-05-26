@@ -11,6 +11,7 @@ import FriendModal from "../../components/FriendModal";
 import Contacts from "./Contacts"; // Sử dụng Contacts component đã tạo
 import LeftPanel from "../../components/LeftPanel";
 import ForwardModal from "../../components/ForwardModal";
+import { ToastContainer, toast } from 'react-toastify';
 
 // Khởi tạo socket (điều chỉnh URL nếu cần)
 const socket = io("http://localhost:5000");
@@ -201,7 +202,7 @@ const Chat = () => {
             });
         };
         const handleDeleteMessageResult = (data) => {
-            alert(data.message);
+            toast.info(data.message);
         }; const handleEmotion = (data) => {
             const obj = JSON.parse(data);
             setMessages((prev) =>
@@ -324,12 +325,12 @@ const Chat = () => {
                 localStorage.setItem("activeChats", JSON.stringify(updated));
                 return updated;
             });
-            alert("Đã tạo nhóm chat: " + groupChat.groupName);
+            toast.success("Đã tạo nhóm chat: " + groupChat.groupName);
         };
 
         const handleGroupDetailsResult = (data) => {
             if (!data.success) {
-                alert(data.message);
+                toast.info(data.message);
                 return;
             }
             setGroupInfo(data.group);
@@ -337,7 +338,7 @@ const Chat = () => {
         };
 
         const handleGroupManagementResult = (data) => {
-            alert(data.message);
+            // alert(data.message);
             if (data.success && currentRoomRef.current) {
                 socket.emit("getGroupDetails", { roomId: currentRoomRef.current });
             }
@@ -350,7 +351,7 @@ const Chat = () => {
         };
 
         const handleKickedFromGroup = (data) => {
-            alert(data.message);
+            // alert(data.message);
             if (currentRoomRef.current === data.roomId) {
                 setCurrentRoom(null);
                 localStorage.removeItem("currentRoom");
@@ -366,7 +367,7 @@ const Chat = () => {
         };
 
         const handleAddedToGroup = (data) => {
-            alert(data.message);
+            // alert(data.message);
             setActiveChats((prev) => {
                 const updated = { ...prev };
                 updated[data.roomId] = { partner: data.group.groupName, unread: 0, isGroup: true };
@@ -378,7 +379,7 @@ const Chat = () => {
         };
 
         const handleLeftGroup = (data) => {
-            alert(data.message);
+            // alert(data.message);
             if (currentRoomRef.current === data.roomId) {
                 setCurrentRoom(null);
                 localStorage.removeItem("currentRoom");
@@ -394,7 +395,7 @@ const Chat = () => {
         };
 
         const handleGroupDisbanded = (data) => {
-            alert(data.message);
+            // alert(data.message);
             if (currentRoomRef.current === data.roomId) {
                 setCurrentRoom(null);
                 localStorage.removeItem("currentRoom");
@@ -438,20 +439,20 @@ const Chat = () => {
             joinedRoomsRef.current.add(roomId);
             setCurrentRoom(roomId);
             localStorage.setItem("currentRoom", roomId);
-            alert(`Bạn đã kết bạn với ${friend} `);
+            toast.success(`Bạn đã kết bạn với ${friend} `);
         });
 
         // --- Sự kiện realtime newFriendRequest cho người nhận ---
         socket.on("newFriendRequest", (data) => {
             console.log("newFriendRequest received:", data);
-            alert(`Bạn có lời mời kết bạn từ ${data.from}`);
+            toast.info(`Bạn có lời mời kết bạn từ ${data.from}`);
             // Cập nhật lại danh sách lời mời kết bạn ngay lập tức
             socket.emit("getFriendRequests", myname);
         });
 
         // --- Lắng nghe sự kiện trả về khi thu hồi lời mời ---
         const handleWithdrawFriendRequestResult = (data) => {
-            alert(data.message);
+            toast.info(data.message);
         };
 
         // Hàm này cần được implement trên server
@@ -473,6 +474,14 @@ const Chat = () => {
             setRequestedFriends(prev => prev.filter(username => username !== to));
         });
 
+        // Lắng nghe sự kiện bị hủy kết bạn để đồng bộ lại friends, friendRequests, requestedFriends
+        socket.on('friendRemoved', () => {
+            socket.emit('getFriends', myname);
+            socket.emit('getFriendRequests', myname);
+            socket.emit('getSentFriendRequests', myname);
+            setForceUpdate(Date.now()); // Force re-render để cập nhật UI
+        });
+
         // Đăng ký các sự kiện từ server
         socket.on("history", handleHistory);
         socket.on("reactionHistory", handleReactionHistory);
@@ -491,7 +500,7 @@ const Chat = () => {
         socket.on("leftGroup", handleLeftGroup);
         socket.on("groupDisbanded", handleGroupDisbanded);
         socket.on("withdrawFriendRequestResult", handleWithdrawFriendRequestResult);
-        socket.on("addFriendResult", (data) => alert(data.message));
+        socket.on("addFriendResult", (data) => toast.success(data.message));
 
 
 
@@ -575,7 +584,7 @@ const Chat = () => {
     // Hàm gửi tin nhắn
     const sendMessage = () => {
         if (!currentRoom) {
-            alert("Vui lòng chọn user hoặc cuộc chat để chat.");
+            toast.error("Vui lòng chọn user hoặc cuộc chat để chat.");
             return;
         }
         if (message.trim() === "") return;
@@ -662,11 +671,11 @@ const Chat = () => {
 
     const handleCreateGroup = () => {
         if (!groupName) {
-            alert("Vui lòng nhập tên nhóm");
+            toast.info("Vui lòng nhập tên nhóm");
             return;
         }
         if (selectedMembers.length === 0) {
-            alert("Chọn ít nhất 1 thành viên");
+            toast.info("Chọn ít nhất 1 thành viên");
             return;
         }
         socket.emit("createGroupChat", { groupName, members: selectedMembers });
@@ -701,7 +710,7 @@ const Chat = () => {
 
     const handleAddGroupMember = (newMember) => {
         if (newMember.trim() === "") {
-            alert("Vui lòng nhập username của thành viên cần thêm");
+            toast.info("Vui lòng nhập username của thành viên cần thêm");
             return;
         }
         socket.emit("addGroupMember", { roomId: currentRoom, newMember });
@@ -738,7 +747,7 @@ const Chat = () => {
 
     const sendMessageHandler = (msg) => {
         if (!currentRoom) {
-            alert("Vui lòng chọn user hoặc cuộc chat để chat.");
+            toast.info("Vui lòng chọn user hoặc cuộc chat để chat.");
             return;
         }
         let messageObj;
@@ -846,6 +855,8 @@ const Chat = () => {
         };
     }, []);
 
+    const [forceUpdate, setForceUpdate] = useState(0);
+
     return (
         <div className="container-fluid">
             <div className="row">
@@ -890,7 +901,7 @@ const Chat = () => {
                                 getMessageId={getMessageId}
                                 onGetGroupDetails={() => {
                                     if (!currentRoom || !activeChats[currentRoom] || !activeChats[currentRoom].isGroup) {
-                                        alert("This is not a group chat.");
+                                        toast.info("This is not a group chat.");
                                         return;
                                     }
                                     socket.emit("getGroupDetails", { roomId: currentRoom });
@@ -901,6 +912,7 @@ const Chat = () => {
                                 requestedFriends={requestedFriends}
                                 setRequestedFriends={setRequestedFriends}
                                 friendRequests={friendRequests} // Truyền đúng prop này
+                                forceUpdate={forceUpdate} // Truyền prop forceUpdate để re-render
                             />
                         </div>
                     ) : (

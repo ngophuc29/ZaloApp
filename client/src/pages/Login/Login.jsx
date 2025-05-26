@@ -1,6 +1,7 @@
 // LoginRegister.jsx
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 
 const LoginRegister = () => {
   const navigate = useNavigate();
@@ -19,7 +20,7 @@ const LoginRegister = () => {
 
   const handleLogin = () => {
     if (!loginData.phone.trim()) {
-      alert("Vui lòng nhập số điện thoại");
+      toast.error("Vui lòng nhập số điện thoại");
       return;
     }
     const data = {
@@ -40,7 +41,7 @@ const LoginRegister = () => {
       })
       .then((result) => {
         if (result.statusCode) {
-          alert(result.message);
+          toast.info(result.message);
         } else {
           localStorage.setItem("username", result.username);
           localStorage.setItem("user", JSON.stringify(result));
@@ -48,13 +49,13 @@ const LoginRegister = () => {
         }
       })
       .catch((error) => {
-        alert("Có lỗi xảy ra: " + error.message);
+        toast.error("Có lỗi xảy ra: " + error.message);
       });
   };
 
   const handleRegister = () => {
     if (registerData.password !== registerData.confirmPassword) {
-      alert("Password không trùng nhau!");
+      toast.error("Password không trùng nhau!");
       return;
     }
     const data = {
@@ -72,13 +73,13 @@ const LoginRegister = () => {
       .then((res) => res.json())
       .then((result) => {
         if (result.statusCode) {
-          alert(result.message);
+          // alert(result.message);
         } else {
-          alert("Đăng ký thành công, hãy đăng nhập!");
+          toast.success("Đăng ký thành công, hãy đăng nhập!");
         }
       })
       .catch((error) => {
-        alert("Có lỗi xảy ra: " + error.message);
+        toast.error("Có lỗi xảy ra: " + error.message);
       });
   };
 

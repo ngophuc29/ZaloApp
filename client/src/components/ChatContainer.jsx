@@ -706,32 +706,47 @@ const ChatContainer = ({
                                             <span style={{ fontWeight: "bold" }}>{msg.name}</span>
                                         </div>
                                     )}
-                                    {msg.replyTo && msg.replyTo.id && (msg.replyTo.message || msg.replyTo.fileUrl) && (
-                                        <div
-                                            className="reply-preview"
-                                            style={styles.replyPreview}
-                                            onClick={() => scrollToMessageOrLoad(msg.replyTo.id)}
-                                        >
-                                            <span className="reply-to">Replying to {msg.replyTo.name}</span>
-                                            {msg.replyTo.message ? (
-                                                <span className="reply-message">{msg.replyTo.message}</span>
-                                            ) : msg.replyTo.fileUrl ? (
-                                                <span className="reply-file">
-                                                    {msg.replyTo.fileType?.startsWith('image') ? (
-                                                        <img
-                                                            src={msg.replyTo.fileUrl}
-                                                            alt="reply-img"
-                                                            style={{ maxWidth: 60, maxHeight: 60, borderRadius: 4, marginRight: 6 }}
-                                                        />
-                                                    ) : (
-                                                        <a href={msg.replyTo.fileUrl} target="_blank" rel="noopener noreferrer">
-                                                            {msg.replyTo.fileName || 'Tệp đính kèm'}
-                                                        </a>
-                                                    )}
-                                                </span>
-                                            ) : null}
-                                        </div>
-                                    )}
+                                    {msg.replyTo && msg.replyTo.id && (msg.replyTo.message || msg.replyTo.fileUrl) && (() => {
+                                        const originalExists = messages.some(m => (m._id || m.id) === msg.replyTo.id);
+                                        const replyPreviewContent = (
+                                            <div
+                                                className="reply-preview"
+                                                style={{
+                                                    ...styles.replyPreview,
+                                                    fontStyle: !originalExists ? 'italic' : undefined,
+                                                    color: !originalExists ? '#888' : undefined
+                                                }}
+                                            >
+                                                <span className="reply-to">Replying to {msg.replyTo.name}</span>
+                                                {msg.replyTo.message ? (
+                                                    <span className="reply-message">
+                                                        {originalExists ? msg.replyTo.message : 'Tin nhắn đã bị xóa'}
+                                                    </span>
+                                                ) : msg.replyTo.fileUrl ? (
+                                                    <span className="reply-file">
+                                                        {msg.replyTo.fileType?.startsWith('image') ? (
+                                                            <img
+                                                                src={msg.replyTo.fileUrl}
+                                                                alt="reply-img"
+                                                                style={{ maxWidth: 60, maxHeight: 60, borderRadius: 4, marginRight: 6 }}
+                                                            />
+                                                        ) : (
+                                                            <a href={msg.replyTo.fileUrl} target="_blank" rel="noopener noreferrer">
+                                                                {msg.replyTo.fileName || 'Tệp đính kèm'}
+                                                            </a>
+                                                        )}
+                                                    </span>
+                                                ) : null}
+                                            </div>
+                                        );
+                                        return originalExists ? (
+                                            <div onClick={() => scrollToMessageOrLoad(msg.replyTo.id)} style={{ cursor: 'pointer' }}>
+                                                {replyPreviewContent}
+                                            </div>
+                                        ) : (
+                                            replyPreviewContent
+                                        );
+                                    })()}
 
                                     {msg.message && <p style={{ margin: 0 }}>{msg.message}</p>}
 
