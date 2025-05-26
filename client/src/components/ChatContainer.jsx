@@ -101,6 +101,9 @@ const ChatContainer = ({
     const [replyingTo, setReplyingTo] = useState(null);
     const [showForwardModal, setShowForwardModal] = useState(false);
     const [forwardMessageObj, setForwardMessageObj] = useState(null);
+    const [showDetailPanel, setShowDetailPanel] = useState(false);
+    const [showImagePreview, setShowImagePreview] = useState(false);
+    const [previewImageUrl, setPreviewImageUrl] = useState("");
 
     // State quản lý cuộc gọi
     const [calling, setCalling] = useState(false);
@@ -515,9 +518,158 @@ const ChatContainer = ({
         }
     };
 
+    // Hàm lấy avatar cho header
+    const getHeaderAvatar = () => {
+        if (!currentRoom) return null;
+        if (isGroupChat(currentRoom)) {
+            // Avatar nhóm: icon nhóm
+            return <i className="fa-solid fa-users" style={{ fontSize: 32, color: '#007bff', marginRight: 10 }}></i>;
+        } else if (isPrivateChat(currentRoom)) {
+            // Avatar user đối phương
+            const partner = getDisplayName(currentRoom, myname);
+            const avatarUrl = getAvatarByName(partner);
+            return <img src={avatarUrl} alt={partner} style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', marginRight: 10 }} />;
+        }
+        return null;
+    };
+
+    // Lấy danh sách file đã gửi trong đoạn chat
+    const sentFiles = messages.filter(msg => msg.fileUrl);
+    const sentImagesVideos = sentFiles.filter(msg =>
+        msg.fileType === 'image' ||
+        /\.(jpe?g|png|gif|webp)$/i.test(msg.fileUrl) ||
+        msg.fileType === 'video' ||
+        /\.(mp4|webm|ogg)$/i.test(msg.fileUrl)
+    );
+    const sentOtherFiles = sentFiles.filter(msg =>
+        !(
+            msg.fileType === 'image' ||
+            /\.(jpe?g|png|gif|webp)$/i.test(msg.fileUrl) ||
+            msg.fileType === 'video' ||
+            /\.(mp4|webm|ogg)$/i.test(msg.fileUrl)
+        )
+    );
+
     return (
         <div className="col-9" style={{ padding: "10px", position: "relative", height: "100vh" }}>
-            <h3 style={{ textAlign: 'left' }}>{getDisplayName(currentRoom, myname)}</h3>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10, justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                    {getHeaderAvatar()}
+                    <h3 style={{ textAlign: 'left', margin: 0 }}>{getDisplayName(currentRoom, myname)}</h3>
+                </div>
+                <button
+                    className="btn btn-outline-info btn-sm"
+                    style={{ marginLeft: 10 }}
+                    onClick={() => setShowDetailPanel(true)}
+                    title="Xem chi tiết đoạn chat"
+                >
+                    <i className="fa-solid fa-info-circle"></i>
+                </button>
+            </div>
+            {/* Panel chi tiết đoạn chat */}
+            {showDetailPanel && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    right: 0,
+                    width: 350,
+                    height: '100vh',
+                    background: '#fff',
+                    boxShadow: '-2px 0 8px rgba(0,0,0,0.15)',
+                    zIndex: 2000,
+                    transition: 'transform 0.3s',
+                    transform: showDetailPanel ? 'translateX(0)' : 'translateX(100%)',
+                    padding: 0,
+                    overflowY: 'auto',
+                    display: 'flex',
+                    flexDirection: 'column',
+                }}>
+                    <div style={{
+                        padding: 24,
+                        borderBottom: '1px solid #eee',
+                        textAlign: 'center',
+                        position: 'relative',
+                        background: '#f7f7f7',
+                    }}>
+                        <button
+                            className="btn btn-sm btn-danger"
+                            style={{ position: 'absolute', top: 16, right: 16 }}
+                            onClick={() => setShowDetailPanel(false)}
+                        >
+                            Đóng
+                        </button>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                            {getHeaderAvatar()}
+                            <div style={{ fontWeight: 'bold', fontSize: 20, marginTop: 8 }}>{getDisplayName(currentRoom, myname)}</div>
+                        </div>
+                    </div>
+                    <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
+                        <div style={{ marginBottom: 32 }}>
+                            <div style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 12, borderBottom: '1px solid #eee', paddingBottom: 4 }}>Ảnh/Video</div>
+                            {sentImagesVideos.length === 0 && <div style={{ color: '#888', fontSize: 13 }}>Chưa có ảnh hoặc video nào</div>}
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                                {sentImagesVideos.map((msg, idx) => (
+                                    <div key={msg._id || msg.id || idx} style={{ width: 90, height: 90, borderRadius: 8, overflow: 'hidden', background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: msg.fileType === 'image' || /\.(jpe?g|png|gif|webp)$/i.test(msg.fileUrl) ? 'pointer' : 'default' }}
+                                        onClick={() => {
+                                            if (msg.fileType === 'image' || /\.(jpe?g|png|gif|webp)$/i.test(msg.fileUrl)) {
+                                                setPreviewImageUrl(msg.fileUrl);
+                                                setShowImagePreview(true);
+                                            }
+                                        }}
+                                    >
+                                        {msg.fileType === 'image' || /\.(jpe?g|png|gif|webp)$/i.test(msg.fileUrl) ? (
+                                            <img src={msg.fileUrl} alt="img" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        ) : (
+                                            <video src={msg.fileUrl} controls style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        <div>
+                            <div style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 12, borderBottom: '1px solid #eee', paddingBottom: 4 }}>File</div>
+                            {sentOtherFiles.length === 0 && <div style={{ color: '#888', fontSize: 13 }}>Chưa có file nào</div>}
+                            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                                {sentOtherFiles.map((msg, idx) => (
+                                    <li key={msg._id || msg.id || idx} style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <i className="fa-solid fa-file" style={{ fontSize: 22, color: '#007bff' }}></i>
+                                        <div style={{ flex: 1 }}>
+                                            <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#007bff', fontWeight: 500, fontSize: 15, wordBreak: 'break-all' }}>
+                                                {msg.fileName || 'File'}
+                                            </a>
+                                            <div style={{ fontSize: 12, color: '#888' }}>{msg.fileName}</div>
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {showImagePreview && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    width: '100vw',
+                    height: '100vh',
+                    background: 'rgba(0,0,0,0.8)',
+                    zIndex: 3000,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                }}
+                    onClick={() => setShowImagePreview(false)}
+                >
+                    <img src={previewImageUrl} alt="preview" style={{ maxWidth: '90vw', maxHeight: '90vh', borderRadius: 8, boxShadow: '0 2px 16px #0008' }} />
+                    <button
+                        onClick={e => { e.stopPropagation(); setShowImagePreview(false); }}
+                        style={{ position: 'fixed', top: 30, right: 40, zIndex: 3100, background: '#fff', border: 'none', borderRadius: 20, padding: '6px 16px', fontWeight: 'bold', fontSize: 18, cursor: 'pointer' }}
+                    >
+                        Đóng
+                    </button>
+                </div>
+            )}
             {/* Chỉ hiện Group Details nếu là group chat */}
             {isGroupChat(currentRoom) && (
                 <button className="btn btn-secondary mb-2" onClick={onGetGroupDetails}>
@@ -789,7 +941,11 @@ const ChatContainer = ({
                                                 <img
                                                     src={msg.fileUrl}
                                                     alt="uploaded"
-                                                    style={{ maxWidth: "200px", borderRadius: "5px" }}
+                                                    style={{ maxWidth: "200px", borderRadius: "5px", cursor: 'pointer' }}
+                                                    onClick={() => {
+                                                        setPreviewImageUrl(msg.fileUrl);
+                                                        setShowImagePreview(true);
+                                                    }}
                                                 />
                                             ) : msg.fileType === 'video' || /\.(mp4|webm|ogg)$/i.test(msg.fileUrl) ? (
                                                 <video
