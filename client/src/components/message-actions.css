@@ -89,3 +89,45 @@ li:hover .message-actions-container {
         box-shadow: none;
     }
 }
+
+/* Mặc định ẩn scrollbar */
+#ul_message::-webkit-scrollbar,
+#ul_message::-webkit-scrollbar-thumb {
+    background: transparent;
+}
+
+/* Chỉ hiện khi có class .scrolling */
+#ul_message.scrolling::-webkit-scrollbar-thumb {
+    background: #bbb;
+    transition: background 0.3s;
+}
+
+#ul_message.scrolling::-webkit-scrollbar {
+    background: #f5f5f5;
+    transition: background 0.3s;
+}
+
+#ul_message:hover::-webkit-scrollbar-thumb {
+    background: #bbb;
+    transition: background 0.3s;
+}
+
+#ul_message:hover::-webkit-scrollbar {
+    background: #f5f5f5;
+    transition: background 0.3s;
+}
+
+/* Firefox */
+#ul_message {
+    scrollbar-width: none;
+}
+
+#ul_message.scrolling {
+    scrollbar-width: thin;
+    scrollbar-color: #bbb #f5f5f5;
+}
+
+#ul_message:hover {
+    scrollbar-width: thin;
+    scrollbar-color: #bbb #f5f5f5;
+}

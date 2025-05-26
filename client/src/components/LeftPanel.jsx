@@ -68,7 +68,7 @@ const LeftPanel = ({
 
 
     return (
-        <div className="col-3 border-end" style={{ padding: "10px" }}>
+        <div className="col-3 border-end left-panel" style={{ padding: "10px" }}>
             {/* Search Bar & Buttons */}
             <div className="mb-3 d-flex align-items-center">
                 <div className="input-group">

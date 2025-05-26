@@ -12,7 +12,6 @@ import Contacts from "./Contacts"; // Sử dụng Contacts component đã tạo
 import LeftPanel from "../../components/LeftPanel";
 import ForwardModal from "../../components/ForwardModal";
 import { ToastContainer, toast } from 'react-toastify';
-
 // Khởi tạo socket (điều chỉnh URL nếu cần)
 const socket = io("http://localhost:5000");
 
@@ -934,7 +933,7 @@ const Chat = () => {
                     setActiveChats={setActiveChats}
                     socket={socket}
                 />
-                <div className="col-11">
+                <div className="col">
                     {activeTab === "chat" ? (
                         <div className="row">
                             <LeftPanel

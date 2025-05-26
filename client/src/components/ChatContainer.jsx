@@ -482,9 +482,29 @@ const ChatContainer = ({
         return () => socket.off('friendAccepted', handleAccept);
     }, [socket, setRequestedFriends]);
 
+    const [isScrolling, setIsScrolling] = useState(false);
+    const scrollTimeout = useRef();
+
+    useEffect(() => {
+        const container = messageContainerRef.current;
+        if (!container) return;
+
+        const handleScroll = () => {
+            setIsScrolling(true);
+            if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
+            scrollTimeout.current = setTimeout(() => setIsScrolling(false), 1000);
+        };
+
+        container.addEventListener('scroll', handleScroll);
+        return () => {
+            container.removeEventListener('scroll', handleScroll);
+            if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
+        };
+    }, []);
+
     return (
         <div className="col-9" style={{ padding: "10px", position: "relative", height: "100vh" }}>
-            <h3 style={{ textAlign: 'left' }}>Chat Room: {currentRoom}</h3>
+            <h3 style={{ textAlign: 'left' }}>{currentRoom}</h3>
             {/* Chỉ hiện Group Details nếu là group chat */}
             {isGroupChat(currentRoom) && (
                 <button className="btn btn-secondary mb-2" onClick={onGetGroupDetails}>
@@ -531,7 +551,7 @@ const ChatContainer = ({
             <ul
                 id="ul_message"
                 ref={messageContainerRef}
-                className="list-group mb-2"
+                className={`list-group mb-2${isScrolling ? " scrolling" : ""}`}
                 style={{ maxHeight: "83vh", overflowY: "auto" }}
             >
                 {messages.map((msg, idx) => {

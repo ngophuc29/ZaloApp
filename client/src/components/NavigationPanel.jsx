@@ -104,7 +104,7 @@ const NavigationPanel = ({ activeTab, setActiveTab, navigate, myname, refreshCon
 
                     // 2. Reset state trước khi xóa storage
                     setActiveChats({});
-                    
+
                     // 3. Xóa từng item trong localStorage một cách rõ ràng
                     const itemsToRemove = [
                         "activeChats",
@@ -112,7 +112,7 @@ const NavigationPanel = ({ activeTab, setActiveTab, navigate, myname, refreshCon
                         "username",
                         "user"
                     ];
-                    
+
                     itemsToRemove.forEach(item => {
                         localStorage.removeItem(item);
                     });
@@ -250,7 +250,7 @@ const NavigationPanel = ({ activeTab, setActiveTab, navigate, myname, refreshCon
 
                                         // 2. Reset state trước khi xóa storage
                                         setActiveChats({});
-                                        
+
                                         // 3. Xóa từng item trong localStorage một cách rõ ràng
                                         const itemsToRemove = [
                                             "activeChats",
@@ -258,7 +258,7 @@ const NavigationPanel = ({ activeTab, setActiveTab, navigate, myname, refreshCon
                                             "username",
                                             "user"
                                         ];
-                                        
+
                                         itemsToRemove.forEach(item => {
                                             localStorage.removeItem(item);
                                         });
@@ -378,7 +378,7 @@ const NavigationPanel = ({ activeTab, setActiveTab, navigate, myname, refreshCon
                         <p><strong>Số điện thoại:</strong> {userInfo.phone || 'Không có thông tin'}</p>
                         <p><strong>Ngày sinh:</strong> {userInfo.birthday ? new Date(userInfo.birthday).toLocaleDateString('vi-VN') : 'Không có thông tin'}</p>
                         <p><strong>Avatar:</strong></p>
-                            <Avatar size={64} src={userInfo.image || "https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/User-avatar.svg/2048px-User-avatar.svg.png"} />
+                        <Avatar size={64} src={userInfo.image || "https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/User-avatar.svg/2048px-User-avatar.svg.png"} />
                     </>
                 )}
             </Modal>
