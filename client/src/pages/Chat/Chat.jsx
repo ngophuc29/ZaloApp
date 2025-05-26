@@ -12,6 +12,7 @@ import Contacts from "./Contacts"; // Sử dụng Contacts component đã tạo
 import LeftPanel from "../../components/LeftPanel";
 import ForwardModal from "../../components/ForwardModal";
 import { ToastContainer, toast } from 'react-toastify';
+
 // Khởi tạo socket (điều chỉnh URL nếu cần)
 const socket = io("http://localhost:5000");
 
@@ -434,17 +435,10 @@ const Chat = () => {
                 localStorage.setItem("activeChats", JSON.stringify(updated));
                 return updated;
             });
-            // Luôn đồng bộ lại friends, requestedFriends, friendRequests cho cả 2 phía
-            socket.emit("getFriends", myname);
-            socket.emit("getFriendRequests", myname);
-            socket.emit("getSentFriendRequests", myname);
-            // Nếu mình là người gửi lời mời, cũng join room và chuyển phòng
-            if (roomId && (roomId.includes(myname) || friend === myname)) {
-                socket.emit("join", roomId);
-                joinedRoomsRef.current.add(roomId);
-                setCurrentRoom(roomId);
-                localStorage.setItem("currentRoom", roomId);
-            }
+            socket.emit("join", roomId);
+            joinedRoomsRef.current.add(roomId);
+            setCurrentRoom(roomId);
+            localStorage.setItem("currentRoom", roomId);
             toast.success(`Bạn đã kết bạn với ${friend} `);
         });
 
@@ -863,65 +857,6 @@ const Chat = () => {
 
     const [forceUpdate, setForceUpdate] = useState(0);
 
-    // Khi chuyển tab, luôn đồng bộ lại friends, friendRequests, requestedFriends
-    useEffect(() => {
-        if (!socket || !myname) return;
-        socket.emit("getFriends", myname);
-        socket.emit("getSentFriendRequests", myname);
-        socket.emit("getFriendRequests", myname);
-    }, [activeTab, socket, myname]);
-
-    // Đảm bảo realtime friends khi chuyển tab, chỉ giữ 1 useEffect duy nhất
-    useEffect(() => {
-        if (!socket || !myname) return;
-        if (activeTab !== "chat") {
-            socket.off("friendsList");
-            socket.off("friendRequests");
-            socket.off("sentFriendRequests");
-            socket.off("friendAccepted");
-            socket.off("respondFriendRequestResult");
-            return;
-        }
-        // Đăng ký lại các listener khi vào tab chat
-        const onFriendsList = (data) => setFriends(data);
-        const onFriendRequests = (requests) => setFriendRequests(requests);
-        const onSentFriendRequests = (requests) => setRequestedFriends(requests.map(req => req.to));
-        const onFriendAccepted = () => {
-            socket.emit("getFriends", myname);
-            socket.emit("getFriendRequests", myname);
-            socket.emit("getSentFriendRequests", myname);
-        };
-        const onRespondResult = () => {
-            socket.emit("getFriends", myname);
-            socket.emit("getFriendRequests", myname);
-            socket.emit("getSentFriendRequests", myname);
-        };
-        socket.on("friendsList", onFriendsList);
-        socket.on("friendRequests", onFriendRequests);
-        socket.on("sentFriendRequests", onSentFriendRequests);
-        socket.on("friendAccepted", onFriendAccepted);
-        socket.on("respondFriendRequestResult", onRespondResult);
-        // Emit lại để lấy dữ liệu mới
-        socket.emit("getFriends", myname);
-        socket.emit("getFriendRequests", myname);
-        socket.emit("getSentFriendRequests", myname);
-        return () => {
-            socket.off("friendsList", onFriendsList);
-            socket.off("friendRequests", onFriendRequests);
-            socket.off("sentFriendRequests", onSentFriendRequests);
-            socket.off("friendAccepted", onFriendAccepted);
-            socket.off("respondFriendRequestResult", onRespondResult);
-        };
-    }, [activeTab, myname, socket]);
-
-    // Khi danh sách requestedFriends hoặc friendRequests thay đổi, tự động đồng bộ lại friends
-    useEffect(() => {
-        if (!socket || !myname) return;
-        socket.emit("getFriends", myname);
-        socket.emit("getFriendRequests", myname);
-        socket.emit("getSentFriendRequests", myname);
-    }, [requestedFriends, friendRequests, myname, socket]);
-
     return (
         <div className="container-fluid">
             <div className="row d-flex flex-nowgrap">
@@ -944,7 +879,7 @@ const Chat = () => {
                                 handleUserClick={handleUserClick} // Khi bấm vào user ở danh sách search
                                 handleRoomClick={handleRoomClick} // Khi bấm vào 1 chat trong chat list
                                 activeRoom={currentRoom}
-                                setFriendModalVisible={setFriendModalVisible}
+                                setFriendModal open={setFriendModalVisible}
                                 onOpenGroupModal={() => setGroupModalVisible(true)}
                             />
                             <ChatContainer
@@ -991,8 +926,9 @@ const Chat = () => {
                     setGroupName={setGroupName}
                     accounts={accounts}
                     selectedMembers={selectedMembers}
+                    setSelectedMembers={setSelectedMembers}
                     myname={myname}
-                    setGroupModalVisible={setGroupModalVisible}
+                    setGroupModal open={setGroupModalVisible}
                     handleCreateGroup={handleCreateGroup}
                     friends={friends}
                 />
@@ -1000,7 +936,7 @@ const Chat = () => {
             {groupDetailsVisible && groupInfo && (
                 <GroupDetailsModal
                     groupInfo={groupInfo}
-                    setGroupDetailsVisible={setGroupDetailsVisible}
+                    setGroupDetails open={setGroupDetailsVisible}
                     myname={myname}
                     handleRemoveGroupMember={handleRemoveGroupMember}
                     handleTransferGroupOwner={handleTransferGroupOwner}
@@ -1019,7 +955,7 @@ const Chat = () => {
                     accounts={accounts}
                     myname={myname}
                     friends={friends}
-                    setFriendModalVisible={setFriendModalVisible}
+                    setFriendModal open={setFriendModalVisible}
                     handleAddFriend={handleAddFriend}
                     handleWithdrawFriendRequest={handleWithdrawFriendRequest}
                     requestedFriends={requestedFriends}               // THÊM

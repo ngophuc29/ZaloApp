@@ -18,7 +18,7 @@ const menuItems = [
     { icon: <FaUserFriends />, label: "Danh sách bạn bè" },
     { icon: <FaUsers />, label: "Danh sách nhóm và cộng đồng" },
     { icon: <FaUserPlus />, label: "Lời mời kết bạn" },
-    { icon: <FaEnvelopeOpenText />, label: "Lời mời vào nhóm và cộng đồng" },
+  
 ];
 
 const Contacts = () => {
@@ -28,6 +28,9 @@ const Contacts = () => {
     const [activeMenu, setActiveMenu] = useState("Danh sách bạn bè");
     const [userList, setUserList] = useState([]);
     const [groupChats, setGroupChats] = useState([]);
+    const [friendsLoading, setFriendsLoading] = useState(false);
+    const [friendRequestsLoading, setFriendRequestsLoading] = useState(false);
+    const [groupsLoading, setGroupsLoading] = useState(false);
     const myUsername = localStorage.getItem("username") || "Guest";
 
     useEffect(() => {
@@ -47,15 +50,16 @@ const Contacts = () => {
         // 3) Đăng ký listeners
         socket.on("friendsList", (data) => {
             setFriends(data);
+            setFriendsLoading(false);
         });
-        // realtime cập nhật khi server emit sau accept/cancel
         socket.on("friendsListUpdated", (updated) => {
-            console.log("Received friendsListUpdated", updated);
             setFriends(updated);
+            setFriendsLoading(false);
         });
 
         socket.on("friendRequests", (data) => {
             setFriendRequests(data);
+            setFriendRequestsLoading(false);
         });
 
         socket.on("newFriendRequest", (data) => {
@@ -93,6 +97,7 @@ const Contacts = () => {
 
         // Lắng nghe danh sách nhóm từ socket
         socket.on("userConversations", (data) => {
+            setGroupsLoading(false);
             try {
                 const parsed = JSON.parse(data);
                 setGroupChats(parsed.groupChats || []);
@@ -120,10 +125,13 @@ const Contacts = () => {
     // Khi chuyển tab, reload data phù hợp
     useEffect(() => {
         if (activeMenu === "Danh sách bạn bè") {
+            setFriendsLoading(true);
             socket.emit("getFriends", myUsername);
         } else if (activeMenu === "Lời mời kết bạn") {
+            setFriendRequestsLoading(true);
             socket.emit("getFriendRequests", myUsername);
         } else if (activeMenu === "Danh sách nhóm và cộng đồng") {
+            setGroupsLoading(true);
             socket.emit("getUserConversations", myUsername);
         }
     }, [activeMenu, myUsername]);
@@ -238,68 +246,81 @@ const Contacts = () => {
                                 boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
                             }}
                         >
-                            {sortedLetters.map((letter) => (
-                                <div key={letter} style={{ marginBottom: "20px" }}>
-                                    <h4
-                                        style={{
-                                            color: "#333",
-                                            borderBottom: "1px solid #eee",
-                                            paddingBottom: "6px",
-                                            marginBottom: "10px",
-                                        }}
-                                    >
-                                        {letter}
-                                    </h4>
-                                    {groupedFriends[letter].map((friend, idx) => {
-                                        const info = userList.find((u) => u.username === friend);
-                                        return (
-                                            <div
-                                                key={idx}
-                                                style={{
-                                                    display: "flex",
-                                                    justifyContent: "space-between",
-                                                    alignItems: "center",
-                                                    padding: "8px 0",
-                                                    borderBottom: "1px solid #f3f3f3",
-                                                }}
-                                            >
-                                                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                                                    <img
-                                                        src={
-                                                            info?.image ||
-                                                            "https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/User-avatar.svg/2048px-User-avatar.svg.png"
-                                                        }
-                                                        alt={friend}
-                                                        style={{
-                                                            width: "40px",
-                                                            height: "40px",
-                                                            borderRadius: "50%",
-                                                            objectFit: "cover",
-                                                        }}
-                                                    />
-                                                    <span style={{ fontWeight: "500", color: "#333" }}>
-                                                        {friend}
-                                                    </span>
-                                                </div>
-                                                <button
-                                                    onClick={() => handleRemoveFriend(friend)}
+                            {friendsLoading ? (
+                                <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: 80 }}>
+                                    <div className="spinner" style={{
+                                        width: 36, height: 36, border: "4px solid #eee",
+                                        borderTop: "4px solid #007aff", borderRadius: "50%",
+                                        animation: "spin 1s linear infinite"
+                                    }} />
+                                    <style>
+                                        {`@keyframes spin { 100% { transform: rotate(360deg); } }`}
+                                    </style>
+                                </div>
+                            ) : (
+                                sortedLetters.map((letter) => (
+                                    <div key={letter} style={{ marginBottom: "20px" }}>
+                                        <h4
+                                            style={{
+                                                color: "#333",
+                                                borderBottom: "1px solid #eee",
+                                                paddingBottom: "6px",
+                                                marginBottom: "10px",
+                                            }}
+                                        >
+                                            {letter}
+                                        </h4>
+                                        {groupedFriends[letter].map((friend, idx) => {
+                                            const info = userList.find((u) => u.username === friend);
+                                            return (
+                                                <div
+                                                    key={idx}
                                                     style={{
-                                                        background: "#f44336",
-                                                        color: "#fff",
-                                                        border: "none",
-                                                        padding: "6px 12px",
-                                                        borderRadius: "6px",
-                                                        fontSize: "12px",
-                                                        cursor: "pointer",
+                                                        display: "flex",
+                                                        justifyContent: "space-between",
+                                                        alignItems: "center",
+                                                        padding: "8px 0",
+                                                        borderBottom: "1px solid #f3f3f3",
                                                     }}
                                                 >
-                                                    Xóa bạn
-                                                </button>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            ))}
+                                                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                                                        <img
+                                                            src={
+                                                                info?.image ||
+                                                                "https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/User-avatar.svg/2048px-User-avatar.svg.png"
+                                                            }
+                                                            alt={friend}
+                                                            style={{
+                                                                width: "40px",
+                                                                height: "40px",
+                                                                borderRadius: "50%",
+                                                                objectFit: "cover",
+                                                            }}
+                                                        />
+                                                        <span style={{ fontWeight: "500", color: "#333" }}>
+                                                            {friend}
+                                                        </span>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => handleRemoveFriend(friend)}
+                                                        style={{
+                                                            background: "#f44336",
+                                                            color: "#fff",
+                                                            border: "none",
+                                                            padding: "6px 12px",
+                                                            borderRadius: "6px",
+                                                            fontSize: "12px",
+                                                            cursor: "pointer",
+                                                        }}
+                                                    >
+                                                        Xóa bạn
+                                                    </button>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                ))
+                            )}
                         </div>
                     </>
                 )}
@@ -315,7 +336,18 @@ const Contacts = () => {
                                 boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
                             }}
                         >
-                            {friendRequests.length === 0 ? (
+                            {friendRequestsLoading ? (
+                                <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: 80 }}>
+                                    <div className="spinner" style={{
+                                        width: 36, height: 36, border: "4px solid #eee",
+                                        borderTop: "4px solid #007aff", borderRadius: "50%",
+                                        animation: "spin 1s linear infinite"
+                                    }} />
+                                    <style>
+                                        {`@keyframes spin { 100% { transform: rotate(360deg); } }`}
+                                    </style>
+                                </div>
+                            ) : friendRequests.length === 0 ? (
                                 <p style={{ fontStyle: "italic", color: "#888" }}>
                                     Không có lời mời kết bạn.
                                 </p>
@@ -411,7 +443,18 @@ const Contacts = () => {
                                 boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
                             }}
                         >
-                            {groupChats.length === 0 ? (
+                            {groupsLoading ? (
+                                <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: 80 }}>
+                                    <div className="spinner" style={{
+                                        width: 36, height: 36, border: "4px solid #eee",
+                                        borderTop: "4px solid #007aff", borderRadius: "50%",
+                                        animation: "spin 1s linear infinite"
+                                    }} />
+                                    <style>
+                                        {`@keyframes spin { 100% { transform: rotate(360deg); } }`}
+                                    </style>
+                                </div>
+                            ) : groupChats.length === 0 ? (
                                 <p style={{ fontStyle: "italic", color: "#888" }}>
                                     Bạn chưa tham gia nhóm nào.
                                 </p>

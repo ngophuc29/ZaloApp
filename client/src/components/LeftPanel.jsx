@@ -71,7 +71,7 @@ const LeftPanel = ({
     };
 
     return (
-        <div className="col-3 border-end left-panel" style={{ padding: "10px" }}>
+        <div className="col-3 border-end" style={{ padding: "10px" }}>
             {/* Search Bar & Buttons */}
             <div className="mb-3 d-flex align-items-center">
                 <div className="input-group">
@@ -141,10 +141,10 @@ const LeftPanel = ({
                 <div className="chat-list">
                     {Object.entries(activeChats)
                         .sort(([, a], [, b]) => {
-                            // Nếu không có lastMessage thì cho lên đầu
+                            // Nếu không có lastMessage thì cho xuống cuối
                             if (!a.lastMessage && !b.lastMessage) return 0;
-                            if (!a.lastMessage) return -1;
-                            if (!b.lastMessage) return 1;
+                            if (!a.lastMessage) return 1;
+                            if (!b.lastMessage) return -1;
                             // So sánh thời gian lastMessage mới nhất
                             return new Date(b.lastMessage.timestamp) - new Date(a.lastMessage.timestamp);
                         })
