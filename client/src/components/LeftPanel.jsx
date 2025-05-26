@@ -14,6 +14,7 @@ const LeftPanel = ({
     onOpenGroupModal,
 }) => {
     const [userList, setUserList] = useState([]);
+    const [inputValue, setInputValue] = useState(""); // New state for tracking input
     const isSearching = searchFilter.trim().length > 0;
 
     useEffect(() => {
@@ -24,6 +25,30 @@ const LeftPanel = ({
             })
             .catch((err) => console.error("Error fetching accounts:", err));
     }, []);
+
+    // Handle input change without immediately searching
+    const handleInputChange = (e) => {
+        const value = e.target.value;
+        setInputValue(value);
+        
+        // Only update search filter if it's a complete phone number (exactly 10 digits)
+        if (value === "") {
+            setSearchFilter("");
+        } else if (/^\d{10}$/.test(value)) {
+            // Only search when exactly 10 digits (complete phone number)
+            setSearchFilter(value);
+        } else if (searchFilter !== "") {
+            // Clear results if we were previously searching
+            setSearchFilter("");
+        }
+    };
+
+    // Handle key press for search
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter' && inputValue.trim()) {
+            setSearchFilter(inputValue);
+        }
+    };
 
     const getAvatarByName = (name) => {
         const user = userList.find((u) => u.username === name);
@@ -71,7 +96,7 @@ const LeftPanel = ({
     };
 
     return (
-        <div className="col-3 border-end" style={{ padding: "10px" }}>
+        <div className="col-3 border-end left-panel" style={{ padding: "10px" }}>
             {/* Search Bar & Buttons */}
             <div className="mb-3 d-flex align-items-center">
                 <div className="input-group">
@@ -81,16 +106,20 @@ const LeftPanel = ({
                     <input
                         type="text"
                         className="form-control"
-                        placeholder="Tìm kiếm"
-                        value={searchFilter}
-                        onChange={(e) => setSearchFilter(e.target.value)}
+                        placeholder="Nhập đủ số điện thoại hoặc nhấn Enter"
+                        value={inputValue}
+                        onChange={handleInputChange}
+                        onKeyDown={handleKeyDown}
                     />
                 </div>
 
                 {isSearching ? (
                     <button
                         className="btn btn-danger ms-2"
-                        onClick={() => setSearchFilter("")}
+                        onClick={() => {
+                            setSearchFilter("");
+                            setInputValue("");
+                        }}
                     >
                         Đóng
                     </button>
@@ -141,10 +170,10 @@ const LeftPanel = ({
                 <div className="chat-list">
                     {Object.entries(activeChats)
                         .sort(([, a], [, b]) => {
-                            // Nếu không có lastMessage thì cho xuống cuối
+                            // Nếu không có lastMessage thì cho lên đầu
                             if (!a.lastMessage && !b.lastMessage) return 0;
-                            if (!a.lastMessage) return 1;
-                            if (!b.lastMessage) return -1;
+                            if (!a.lastMessage) return -1;
+                            if (!b.lastMessage) return 1;
                             // So sánh thời gian lastMessage mới nhất
                             return new Date(b.lastMessage.timestamp) - new Date(a.lastMessage.timestamp);
                         })
