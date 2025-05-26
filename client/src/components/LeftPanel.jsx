@@ -65,7 +65,10 @@ const LeftPanel = ({
         return `${sender}: ${body}`;
     };
 
-
+    const getGroupName = (room) => {
+        // Nếu là group (có dấu _), chỉ lấy phần trước dấu _
+        return room.includes("_") ? room.split("_")[0] : room;
+    };
 
     return (
         <div className="col-3 border-end left-panel" style={{ padding: "10px" }}>
@@ -170,7 +173,7 @@ const LeftPanel = ({
                                     <div className="chat-info">
                                         <div className="chat-header">
                                             <span className="chat-name">
-                                                {chat.isGroup ? room : chat.partner}
+                                                {chat.isGroup ? getGroupName(room) : chat.partner}
                                             </span>
                                             {chat.lastMessage && (
                                                 <span className="chat-time">

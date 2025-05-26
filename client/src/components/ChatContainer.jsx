@@ -515,9 +515,27 @@ const ChatContainer = ({
         }
     };
 
+    // Hàm lấy avatar cho header
+    const getHeaderAvatar = () => {
+        if (!currentRoom) return null;
+        if (isGroupChat(currentRoom)) {
+            // Avatar nhóm: icon nhóm
+            return <i className="fa-solid fa-users" style={{ fontSize: 32, color: '#007bff', marginRight: 10 }}></i>;
+        } else if (isPrivateChat(currentRoom)) {
+            // Avatar user đối phương
+            const partner = getDisplayName(currentRoom, myname);
+            const avatarUrl = getAvatarByName(partner);
+            return <img src={avatarUrl} alt={partner} style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', marginRight: 10 }} />;
+        }
+        return null;
+    };
+
     return (
         <div className="col-9" style={{ padding: "10px", position: "relative", height: "100vh" }}>
-            <h3 style={{ textAlign: 'left' }}>{getDisplayName(currentRoom, myname)}</h3>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
+                {getHeaderAvatar()}
+                <h3 style={{ textAlign: 'left', margin: 0 }}>{getDisplayName(currentRoom, myname)}</h3>
+            </div>
             {/* Chỉ hiện Group Details nếu là group chat */}
             {isGroupChat(currentRoom) && (
                 <button className="btn btn-secondary mb-2" onClick={onGetGroupDetails}>
