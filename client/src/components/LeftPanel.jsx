@@ -12,6 +12,7 @@ const LeftPanel = ({
     activeRoom,
     setFriendModalVisible,
     onOpenGroupModal,
+    handleDeleteChat,
 }) => {
     const [userList, setUserList] = useState([]);
     const [inputValue, setInputValue] = useState("");
@@ -126,11 +127,18 @@ const LeftPanel = ({
                 } else {
                   
                     alert('Bạn chỉ có thể ghim tối đa 5 cuộc hội thoại.'); 
-                     setTimeout(() => setChatOptionsVisible(null), 0);
-                    return prev; 
+                     setTimeout(() => setChatOptionsVisible(null), 0); // Ensure menu closes
+                    return prev; // Return the previous state without adding
                 }
             }
         });
+    };
+
+    const handleDeleteChatConfirm = (room) => {
+        if (window.confirm("Bạn có chắc muốn xóa đoạn hội thoại này?")) {
+            handleDeleteChat(room);
+            setChatOptionsVisible(null);
+        }
     };
 
     return (
@@ -206,7 +214,6 @@ const LeftPanel = ({
                 </div>
             ) : (
                 <div className="chat-list">
-                    {/* Sort pinned rooms first, then unpinned rooms by last message timestamp */}
                     {(() => {
                         // Get all room keys
                         const allRooms = Object.keys(activeChats);
@@ -215,16 +222,26 @@ const LeftPanel = ({
                         const pinned = allRooms.filter(room => pinnedRooms.includes(room));
                         const unpinned = allRooms.filter(room => !pinnedRooms.includes(room));
 
-                        // Sort unpinned rooms by last message timestamp (newest first)
+                        // Sort unpinned rooms: prioritize new group chats (no last message)
                         const sortedUnpinned = unpinned.sort((roomA, roomB) => {
                             const chatA = activeChats[roomA];
                             const chatB = activeChats[roomB];
 
-                            // Handle cases where lastMessage might be missing
-                            if (!chatA || !chatA.lastMessage || !chatA.lastMessage.timestamp) return 1; // Put chats without last message at the bottom
-                            if (!chatB || !chatB.lastMessage || !chatB.lastMessage.timestamp) return -1; // Put chats without last message at the bottom
+                            // Check if either chat is a new group (isGroup and no last message)
+                            const isNewGroupA = chatA?.isGroup && (!chatA?.lastMessage || !chatA?.lastMessage?.timestamp);
+                            const isNewGroupB = chatB?.isGroup && (!chatB?.lastMessage || !chatB?.lastMessage?.timestamp);
 
-                            return new Date(chatB.lastMessage.timestamp) - new Date(chatA.lastMessage.timestamp);
+                            // If both are new groups, maintain their relative order
+                            if (isNewGroupA && isNewGroupB) return 0;
+                            
+                            // If only one is a new group, it comes first
+                            if (isNewGroupA) return -1;
+                            if (isNewGroupB) return 1;
+
+                            // For all other cases, sort by last message timestamp
+                            const timeA = chatA?.lastMessage?.timestamp ? new Date(chatA.lastMessage.timestamp).getTime() : 0;
+                            const timeB = chatB?.lastMessage?.timestamp ? new Date(chatB.lastMessage.timestamp).getTime() : 0;
+                            return timeB - timeA;
                         });
 
                         // Combine pinned and sorted unpinned rooms
@@ -279,6 +296,9 @@ const LeftPanel = ({
                                                 <div className="chat-menu" style={{ position: 'absolute', right: 0, zIndex: 100 }}>
                                                     <button className="chat-menu-item" onClick={() => handlePinToggle(room)}>
                                                         {pinnedRooms.includes(room) ? 'Bỏ ghim' : 'Ghim hội thoại'}
+                                                    </button>
+                                                    <button className="chat-menu-item text-danger" onClick={() => handleDeleteChatConfirm(room)}>
+                                                        Xóa đoạn hội thoại
                                                     </button>
                                                 </div>
                                             )}

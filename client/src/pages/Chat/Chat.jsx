@@ -992,7 +992,7 @@ const Chat = () => {
                     selectedMembers={selectedMembers}
                     setSelectedMembers={setSelectedMembers}
                     myname={myname}
-                    setGroupModal open={setGroupModalVisible}
+                    setGroupModalVisible={setGroupModalVisible}
                     handleCreateGroup={handleCreateGroup}
                     friends={friends}
                 />
@@ -1000,7 +1000,7 @@ const Chat = () => {
             {groupDetailsVisible && groupInfo && (
                 <GroupDetailsModal
                     groupInfo={groupInfo}
-                    setGroupDetails open={setGroupDetailsVisible}
+                    setGroupDetailsVisible={setGroupDetailsVisible}
                     myname={myname}
                     handleRemoveGroupMember={handleRemoveGroupMember}
                     handleTransferGroupOwner={handleTransferGroupOwner}
