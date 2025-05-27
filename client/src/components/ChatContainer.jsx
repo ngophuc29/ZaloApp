@@ -112,7 +112,7 @@ const ChatContainer = ({
     const [localStream, setLocalStream] = useState(null);
     const [remoteStream, setRemoteStream] = useState(null);
     const [peer, setPeer] = useState(null);
-    const [facingMode, setFacingMode] = useState("user");
+    const [callType, setCallType] = useState(null); // 'audio' | 'video'
     const [isLoadingMedia, setIsLoadingMedia] = useState(false);
     const [mediaError, setMediaError] = useState(null);
     const [userInfo, setUserInfo] = useState({});
@@ -131,7 +131,7 @@ const ChatContainer = ({
 
         const usernameToFetch = myname || storedUser.username;
         if (usernameToFetch) {
-            fetch(`http://localhost:5000/api/accounts/username/${usernameToFetch}`)
+            fetch(`https://sockettubuild.onrender.com/api/accounts/username/${usernameToFetch}`)
                 .then(res => res.json())
                 .then(data => {
                     if (data && !data.message) {
@@ -218,7 +218,7 @@ const ChatContainer = ({
 
     useEffect(() => {
 
-        fetch("http://localhost:5000/api/accounts")
+        fetch("https://sockettubuild.onrender.com/api/accounts")
             .then((res) => res.json())
             .then((data) => {
                 setUserList(data)
@@ -549,6 +549,130 @@ const ChatContainer = ({
             /\.(mp4|webm|ogg)$/i.test(msg.fileUrl)
         )
     );
+
+    // Xử lý nhận tín hiệu gọi đến qua socket
+    useEffect(() => {
+        if (!socket) return;
+        const handleIncomingCall = ({ from, signal, type }) => {
+            setIncomingCall({ from, signal, type });
+            setCalling(false);
+            setCallAccepted(false);
+            setCallType(type || 'audio');
+        };
+        socket.on('callIncoming', handleIncomingCall);
+        return () => socket.off('callIncoming', handleIncomingCall);
+    }, [socket]);
+
+    // Lắng nghe callEnded từ socket để đóng modal gọi ở cả 2 phía
+    useEffect(() => {
+        if (!socket) return;
+        const handleCallEnded = () => {
+            if (peer) peer.destroy();
+            // Đóng thiết bị
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+            }
+            if (remoteStream) {
+                remoteStream.getTracks && remoteStream.getTracks().forEach(track => track.stop());
+            }
+            setCalling(false);
+            setCallAccepted(false);
+            setPeer(null);
+            setLocalStream(null);
+            setRemoteStream(null);
+            setIncomingCall(null);
+            setCallType(null);
+        };
+        socket.on('callEnded', handleCallEnded);
+        return () => socket.off('callEnded', handleCallEnded);
+    }, [socket, peer, localStream, remoteStream]);
+
+    // Thời lượng cuộc gọi
+    const [callDuration, setCallDuration] = useState(0);
+    const callTimerRef = useRef();
+    useEffect(() => {
+        if (callAccepted) {
+            setCallDuration(0);
+            callTimerRef.current = setInterval(() => {
+                setCallDuration(prev => prev + 1);
+            }, 1000);
+        } else {
+            setCallDuration(0);
+            if (callTimerRef.current) clearInterval(callTimerRef.current);
+        }
+        return () => { if (callTimerRef.current) clearInterval(callTimerRef.current); };
+    }, [callAccepted]);
+
+    // Tắt/mở mic và loa
+    const [isMicMuted, setIsMicMuted] = useState(false);
+    const [isSpeakerMuted, setIsSpeakerMuted] = useState(false);
+
+    // ICE servers config for WebRTC
+    const iceServers = [
+        { urls: 'stun:stun.l.google.com:19302' }
+        // Thêm TURN server nếu có
+    ];
+
+    // Đảm bảo khi peer đóng thì reset state và gửi endCall nếu cần
+    useEffect(() => {
+        if (!peer) return;
+        const onPeerClose = () => {
+            // Đóng thiết bị
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+            }
+            if (remoteStream) {
+                remoteStream.getTracks && remoteStream.getTracks().forEach(track => track.stop());
+            }
+            // Gửi message cuộc gọi vào đoạn chat nếu là chat cá nhân
+            if (isPrivateChat(currentRoom) && (calling || callAccepted)) {
+                const callMsg = {
+                    id: Date.now(),
+                    name: myname,
+                    room: currentRoom,
+                    type: "call",
+                    callType: callType,
+                    duration: callDuration,
+                    caller: myname,
+                    callee: partnerName,
+                    status: callAccepted ? "ended" : "missed",
+                    createdAt: new Date().toISOString()
+                };
+                sendMessage(callMsg); // Gửi object trực tiếp để server lưu vào DB
+            }
+            setCalling(false);
+            setCallAccepted(false);
+            setPeer(null);
+            setLocalStream(null);
+            setRemoteStream(null);
+            setIncomingCall(null);
+            setCallType(null);
+            if (socket && (incomingCall || calling || callAccepted)) {
+                socket.emit('endCall', { to: incomingCall ? incomingCall.from : partnerName });
+            }
+        };
+        peer.on('close', onPeerClose);
+        return () => peer.removeListener('close', onPeerClose);
+    }, [peer, socket, incomingCall, calling, callAccepted, partnerName, localStream, remoteStream, currentRoom, myname, callType, callDuration, sendMessage, isPrivateChat]);
+
+    useEffect(() => {
+        if (!socket) return;
+        const handleHistory = (data) => {
+            let msgs = data;
+            if (typeof data === "string") {
+                try {
+                    msgs = JSON.parse(data);
+                } catch (e) {
+                    console.error("Lỗi parse history:", e, data);
+                    msgs = [];
+                }
+            }
+            console.log("History messages:", msgs); // Log kiểm tra
+            setMessages(msgs);
+        };
+        socket.on("history", handleHistory);
+        return () => socket.off("history", handleHistory);
+    }, [socket, setMessages]);
 
     return (
         <div className="col-9" style={{ padding: "10px", position: "relative", height: "100vh" }}>
@@ -933,7 +1057,17 @@ const ChatContainer = ({
                                         );
                                     })()}
 
-                                    {msg.message && <p style={{ margin: 0 }}>{msg.message}</p>}
+                                    {msg.type === 'call' ? (
+                                      <div style={{ color: '#007bff', fontStyle: 'italic', fontSize: 15, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <i className={msg.callType === 'video' ? 'fas fa-video' : 'fas fa-phone'} style={{ fontSize: 16 }}></i>
+                                        {msg.status === 'missed'
+                                          ? (isMine ? 'Bạn đã bỏ lỡ cuộc gọi' : 'Cuộc gọi đến bị bỏ lỡ')
+                                          : `Cuộc gọi ${msg.callType === 'video' ? 'video' : 'thoại'} đã kết thúc. Thời lượng ${msg.duration ? `${Math.floor(msg.duration/60).toString().padStart(2,'0')}:${(msg.duration%60).toString().padStart(2,'0')}` : '00:00'}`
+                                        }
+                                      </div>
+                                    ) : (
+                                      msg.message && <p style={{ margin: 0 }}>{msg.message}</p>
+                                    )}
 
                                     {msg.fileUrl && (
                                         <div style={{ marginTop: "5px" }}>
@@ -1025,7 +1159,106 @@ const ChatContainer = ({
                         <i className="fas fa-paperclip"></i> File
                     </button>
 
-
+                    {/* Nút gọi thoại */}
+                    {isPrivateChat(currentRoom) && !isStranger && (
+                        <button
+                            className="btn btn-info btn-action"
+                            onClick={async () => {
+                                setMediaError(null);
+                                setIsLoadingMedia(true);
+                                setCallType('audio');
+                                try {
+                                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                                    setLocalStream(stream);
+                                    setCalling(true);
+                                    const newPeer = new Peer({ initiator: true, trickle: false, stream, config: { iceServers } });
+                                    setPeer(newPeer);
+                                    newPeer.on('signal', data => {
+                                        socket.emit('callUser', {
+                                            userToCall: partnerName,
+                                            signalData: data,
+                                            from: myname,
+                                            type: 'audio'
+                                        });
+                                    });
+                                    newPeer.on('icecandidate', candidate => {
+                                        socket.emit('iceCandidate', {
+                                            to: partnerName,
+                                            candidate: candidate
+                                        });
+                                    });
+                                    newPeer.on('stream', remote => {
+                                        setRemoteStream(remote);
+                                    });
+                                    newPeer.on('error', err => setMediaError('Lỗi kết nối: ' + err.message));
+                                    socket.on('callAccepted', ({ signal }) => {
+                                        setCallAccepted(true);
+                                        newPeer.signal(signal);
+                                    });
+                                    socket.on('iceCandidate', ({ candidate }) => {
+                                        newPeer.addIceCandidate(new RTCIceCandidate(candidate));
+                                    });
+                                } catch (err) {
+                                    setMediaError('Không thể truy cập mic: ' + err.message);
+                                    setIsLoadingMedia(false);
+                                }
+                            }}
+                            title="Gọi thoại"
+                            disabled={calling || callAccepted}
+                        >
+                            <i className="fas fa-phone"></i> Gọi thoại
+                        </button>
+                    )}
+                    {/* Nút gọi video */}
+                    {isPrivateChat(currentRoom) && !isStranger && (
+                        <button
+                            className="btn btn-success btn-action"
+                            onClick={async () => {
+                                setMediaError(null);
+                                setIsLoadingMedia(true);
+                                setCallType('video');
+                                try {
+                                    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                                    setLocalStream(stream);
+                                    setCalling(true);
+                                    const newPeer = new Peer({ initiator: true, trickle: false, stream, config: { iceServers } });
+                                    setPeer(newPeer);
+                                    newPeer.on('signal', data => {
+                                        socket.emit('callUser', {
+                                            userToCall: partnerName,
+                                            signalData: data,
+                                            from: myname,
+                                            type: 'video'
+                                        });
+                                    });
+                                    newPeer.on('icecandidate', candidate => {
+                                        socket.emit('iceCandidate', {
+                                            to: partnerName,
+                                            candidate: candidate
+                                        });
+                                    });
+                                    newPeer.on('stream', remote => {
+                                        setRemoteStream(remote);
+                                    });
+                                    newPeer.on('error', err => setMediaError('Lỗi kết nối: ' + err.message));
+                                    socket.on('callAccepted', ({ signal }) => {
+                                        setCallAccepted(true);
+                                        newPeer.signal(signal);
+                                    });
+                                    socket.on('iceCandidate', ({ candidate }) => {
+                                        newPeer.addIceCandidate(new RTCIceCandidate(candidate));
+                                    });
+                                } catch (err) {
+                                    setMediaError('Không thể truy cập camera/mic: ' + err.message);
+                                    setIsLoadingMedia(false);
+                                }
+                            }}
+                            title="Gọi video"
+                            disabled={calling || callAccepted}
+                        >
+                            <i className="fas fa-video"></i> Gọi video
+                        </button>
+                    )}
                 </div>
 
                 {/* Row for input and send */}
@@ -1115,6 +1348,189 @@ const ChatContainer = ({
                     forwardMessageObj={forwardMessageObj}
                 />
             )}
+
+            {/* Modal gọi thoại/video */}
+            {(calling || incomingCall || callAccepted) && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.85)', zIndex: 4000,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column'
+                }}>
+                    <div style={{ position: 'relative', width: 420, height: 520, background: '#222', borderRadius: 18, boxShadow: '0 4px 32px #0008', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                        {/* Nếu là gọi video và đã nhận stream thì hiển thị video */}
+                        {(callType === 'video' && callAccepted && remoteStream) ? (
+                            <video
+                                autoPlay
+                                playsInline
+                                ref={el => {
+                                    if (el && remoteStream) {
+                                        el.srcObject = remoteStream;
+                                        el.muted = isSpeakerMuted;
+                                    }
+                                }}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', background: '#000' }}
+                            />
+                        ) : callType === 'audio' && callAccepted && remoteStream ? (
+                            <audio
+                                autoPlay
+                                controls={false}
+                                ref={el => {
+                                    if (el && remoteStream) {
+                                        el.srcObject = remoteStream;
+                                        el.muted = isSpeakerMuted;
+                                    }
+                                }}
+                                style={{ display: 'none' }}
+                            />
+                        ) : (
+                            <div style={{ width: '100%', height: '100%', background: '#222', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                                <img src={getAvatarByName(incomingCall ? incomingCall.from : partnerName)} alt="avatar" style={{ width: 120, height: 120, borderRadius: '50%', marginBottom: 18, border: '4px solid #fff' }} />
+                                <div style={{ color: '#fff', fontWeight: 'bold', fontSize: 22, marginBottom: 8 }}>{incomingCall ? incomingCall.from : partnerName}</div>
+                                <div style={{ color: '#bbb', fontSize: 16, marginBottom: 18 }}>
+                                    {incomingCall && !callAccepted ? 'Cuộc gọi đến...' : (calling && !callAccepted ? (callType === 'video' ? 'Đang kết nối video...' : 'Đang kết nối thoại...') : (callType === 'video' ? 'Đang gọi video...' : 'Đang gọi thoại...'))}
+                                </div>
+                            </div>
+                        )}
+                        {/* Video của mình nhỏ góc phải trên nếu là video */}
+                        {(callType === 'video' && localStream && callAccepted) && (
+                            <video
+                                autoPlay
+                                muted
+                                playsInline
+                                ref={el => { if (el && localStream) el.srcObject = localStream; }}
+                                style={{ position: 'absolute', top: 18, right: 18, width: 110, height: 80, borderRadius: 12, border: '2px solid #fff', objectFit: 'cover', background: '#000', zIndex: 2 }}
+                            />
+                        )}
+                        {/* Avatar overlay khi chưa có video */}
+                        {(callType === 'video' && (!callAccepted || !remoteStream)) && (
+                            <div style={{ position: 'absolute', top: 18, right: 18, width: 110, height: 80, borderRadius: 12, background: '#444', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
+                                <img src={getAvatarByName(myname)} alt="me" style={{ width: 48, height: 48, borderRadius: '50%' }} />
+                            </div>
+                        )}
+                        {/* Nút điều khiển */}
+                        <div style={{ position: 'absolute', bottom: 32, left: 0, width: '100%', display: 'flex', justifyContent: 'center', gap: 32, zIndex: 10 }}>
+                            {/* Tắt/mở camera chỉ cho gọi video */}
+                            {callType === 'video' && (
+                                <button className="btn btn-light" style={{ borderRadius: '50%', width: 54, height: 54, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}
+                                    onClick={() => {
+                                        if (localStream) {
+                                            const videoTrack = localStream.getVideoTracks()[0];
+                                            if (videoTrack) videoTrack.enabled = !videoTrack.enabled;
+                                            setLocalStream(new MediaStream([...localStream.getAudioTracks(), videoTrack]));
+                                        }
+                                    }}
+                                    title="Tắt/mở camera"
+                                    disabled={!localStream}
+                                >
+                                    <i className={localStream && localStream.getVideoTracks()[0] && !localStream.getVideoTracks()[0].enabled ? 'fas fa-video-slash' : 'fas fa-video'}></i>
+                                </button>
+                            )}
+                            {/* Tắt/mở mic */}
+                            <button className="btn btn-light" style={{ borderRadius: '50%', width: 54, height: 54, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}
+                                onClick={() => {
+                                    if (localStream) {
+                                        const audioTrack = localStream.getAudioTracks()[0];
+                                        if (audioTrack) {
+                                            audioTrack.enabled = !audioTrack.enabled;
+                                            setIsMicMuted(!audioTrack.enabled);
+                                        }
+                                    }
+                                }}
+                                title={isMicMuted ? "Bật mic" : "Tắt mic"}
+                                disabled={!localStream}
+                            >
+                                <i className={isMicMuted ? 'fas fa-microphone-slash' : 'fas fa-microphone'}></i>
+                            </button>
+                            {/* Tắt/mở loa (mute remote audio) */}
+                            <button className="btn btn-light" style={{ borderRadius: '50%', width: 54, height: 54, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}
+                                onClick={() => {
+                                    setIsSpeakerMuted(muted => !muted);
+                                    // remote audio sẽ được mute/unmute ở thẻ video phía dưới
+                                }}
+                                title={isSpeakerMuted ? "Bật loa" : "Tắt loa"}
+                                disabled={!remoteStream}
+                            >
+                                <i className={isSpeakerMuted ? 'fas fa-volume-mute' : 'fas fa-volume-up'}></i>
+                            </button>
+                            {/* Kết thúc */}
+                            <button className="btn btn-danger" style={{ borderRadius: '50%', width: 54, height: 54, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}
+                                onClick={() => {
+                                    if (peer) peer.destroy();
+                                    if (socket && (incomingCall || calling || callAccepted)) {
+                                        socket.emit('endCall', { to: incomingCall ? incomingCall.from : partnerName });
+                                    }
+                                    // Đóng thiết bị
+                                    if (localStream) {
+                                        localStream.getTracks().forEach(track => track.stop());
+                                    }
+                                    if (remoteStream) {
+                                        remoteStream.getTracks && remoteStream.getTracks().forEach(track => track.stop());
+                                    }
+                                    setCalling(false);
+                                    setCallAccepted(false);
+                                    setPeer(null);
+                                    setLocalStream(null);
+                                    setRemoteStream(null);
+                                    setIncomingCall(null);
+                                    setCallType(null);
+                                }}
+                                title="Kết thúc cuộc gọi"
+                            >
+                                <i className="fas fa-phone-slash"></i>
+                            </button>
+                        </div>
+                        {/* Hiện thời lượng cuộc gọi */}
+                        {callAccepted && (
+                            <div style={{ position: 'absolute', top: 18, left: 18, color: '#fff', background: '#000a', borderRadius: 8, padding: '4px 12px', fontSize: 15 }}>
+                                {Math.floor(callDuration / 60).toString().padStart(2, '0')}:{(callDuration % 60).toString().padStart(2, '0')}
+                            </div>
+                        )}
+                        {/* Nút nhận/từ chối khi có cuộc gọi đến */}
+                        {incomingCall && !callAccepted && (
+                            <div style={{ position: 'absolute', bottom: 110, left: 0, width: '100%', display: 'flex', justifyContent: 'center', gap: 32, zIndex: 10 }}>
+                                <button className="btn btn-success" style={{ borderRadius: '50%', width: 54, height: 54, fontSize: 22 }} onClick={async () => {
+                                    setMediaError(null);
+                                    setIsLoadingMedia(true);
+                                    setCallType(incomingCall.type || 'audio');
+                                    try {
+                                        const stream = await navigator.mediaDevices.getUserMedia({ video: incomingCall.type === 'video', audio: true });
+                                        setLocalStream(stream);
+                                        setCallAccepted(true);
+                                        const newPeer = new Peer({ initiator: false, trickle: false, stream, config: { iceServers } });
+                                        setPeer(newPeer);
+                                        newPeer.on('signal', data => {
+                                            socket.emit('acceptCall', { to: incomingCall.from, signal: data });
+                                        });
+                                        newPeer.on('stream', remote => {
+                                            setRemoteStream(remote);
+                                        });
+                                        newPeer.on('error', err => setMediaError('Lỗi kết nối: ' + err.message));
+                                        newPeer.signal(incomingCall.signal);
+                                    } catch (err) {
+                                        setMediaError('Không thể truy cập thiết bị: ' + err.message);
+                                        setIsLoadingMedia(false);
+                                    }
+                                }} title="Chấp nhận cuộc gọi">
+                                    <i className="fas fa-phone"></i>
+                                </button>
+                                <button className="btn btn-danger" style={{ borderRadius: '50%', width: 54, height: 54, fontSize: 22 }} onClick={() => {
+                                    if (socket && incomingCall) {
+                                        socket.emit('endCall', { to: incomingCall.from });
+                                    }
+                                    setIncomingCall(null);
+                                    setCalling(false);
+                                    setCallAccepted(false);
+                                    setPeer(null);
+                                    setLocalStream(null);
+                                    setRemoteStream(null);
+                                    setCallType(null);
+                                }} title="Từ chối cuộc gọi">
+                                    <i className="fas fa-phone-slash"></i>
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
@@ -1123,4 +1539,6 @@ const ChatContainer = ({
 
 
 export default ChatContainer;
+
+
 

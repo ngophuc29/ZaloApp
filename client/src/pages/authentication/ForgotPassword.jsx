@@ -14,7 +14,7 @@ const ForgotPassword = () => {
   const handleSubmit = async () => {
     setLoading(true);
     try {
-      const response = await axios.post(`http://localhost:5000/api/accounts/forgot-password`, { email });
+      const response = await axios.post(`https://sockettubuild.onrender.com/api/accounts/forgot-password`, { email });
 
       if (response.status === 200) {
         message.success('Đã gửi email đặt lại mật khẩu! Kiểm tra hộp thư của bạn.');

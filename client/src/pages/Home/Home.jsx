@@ -4,7 +4,7 @@ import Contacts from "./Contacts"; // Nếu cần sử dụng component Contacts
 import { useNavigate } from "react-router-dom";
 
 // Kết nối tới backend (điều chỉnh URL nếu cần)
-const socket = io("http://localhost:5000");
+const socket = io("https://sockettubuild.onrender.com");
 
 const emotions = [
   { id: 1, icon: <i className="fa-solid fa-heart"></i>, html: `<i class="fa-solid fa-heart"></i>` },
