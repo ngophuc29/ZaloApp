@@ -921,6 +921,54 @@ const Chat = () => {
         socket.emit("getFriendRequests", myname);
         socket.emit("getSentFriendRequests", myname);
     }, [requestedFriends, friendRequests, myname, socket]);
+
+    const handleDeleteChat = (room) => {
+        if (!room) {
+            toast.error("Không thể xóa đoạn hội thoại này");
+            return;
+        }
+
+        // Xóa khỏi activeChats
+        setActiveChats(prev => {
+            const updated = { ...prev };
+            delete updated[room];
+            localStorage.setItem("activeChats", JSON.stringify(updated));
+            return updated;
+        });
+
+        // Nếu đang ở phòng chat bị xóa, chuyển về null
+        if (currentRoom === room) {
+            setCurrentRoom(null);
+            localStorage.removeItem("currentRoom");
+            setMessages([]);
+        }
+
+        // Xóa tin nhắn khỏi localStorage
+        localStorage.removeItem("chat_" + room);
+
+        // Thông báo cho server để xóa tin nhắn của user này
+        socket.emit("deleteChat", { roomId: room, username: myname });
+    };
+
+    useEffect(() => {
+        // ... existing socket listeners ...
+
+        const handleDeleteChatResult = (data) => {
+            if (data.success) {
+                toast.success(data.message);
+            } else {
+                toast.error(data.message);
+            }
+        };
+
+        socket.on("deleteChatResult", handleDeleteChatResult);
+
+        return () => {
+            // ... existing cleanup ...
+            socket.off("deleteChatResult", handleDeleteChatResult);
+        };
+    }, []);
+
     return (
         <div className="container-fluid">
             <div className="row d-flex flex-nowgrap">
@@ -940,11 +988,12 @@ const Chat = () => {
                                 setSearchFilter={setSearchFilter}
                                 filteredAccounts={filteredAccounts}
                                 activeChats={activeChats}
-                                handleUserClick={handleUserClick} // Khi bấm vào user ở danh sách search
-                                handleRoomClick={handleRoomClick} // Khi bấm vào 1 chat trong chat list
+                                handleUserClick={handleUserClick}
+                                handleRoomClick={handleRoomClick}
                                 activeRoom={currentRoom}
-                                setFriendModal open={setFriendModalVisible}
+                                setFriendModalVisible={setFriendModalVisible}
                                 onOpenGroupModal={() => setGroupModalVisible(true)}
+                                handleDeleteChat={handleDeleteChat}
                             />
                             <ChatContainer
                                 currentRoom={currentRoom}
@@ -975,8 +1024,8 @@ const Chat = () => {
                                 friends={friends}
                                 requestedFriends={requestedFriends}
                                 setRequestedFriends={setRequestedFriends}
-                                friendRequests={friendRequests} // Truyền đúng prop này
-                                forceUpdate={forceUpdate} // Truyền prop forceUpdate để re-render
+                                friendRequests={friendRequests}
+                                forceUpdate={forceUpdate}
                             />
                         </div>
                     ) : (
@@ -1022,7 +1071,7 @@ const Chat = () => {
                     setFriendModal open={setFriendModalVisible}
                     handleAddFriend={handleAddFriend}
                     handleWithdrawFriendRequest={handleWithdrawFriendRequest}
-                    requestedFriends={requestedFriends}               // THÊM
+                    requestedFriends={requestedFriends}
                     setRequestedFriends={setRequestedFriends}
                 />
             )}

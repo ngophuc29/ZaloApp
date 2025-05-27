@@ -12,7 +12,6 @@ const LeftPanel = ({
     activeRoom,
     setFriendModalVisible,
     onOpenGroupModal,
-
 }) => {
     const [userList, setUserList] = useState([]);
     const [inputValue, setInputValue] = useState("");
@@ -198,7 +197,6 @@ const LeftPanel = ({
                                 src={account.image || "https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/User-avatar.svg/2048px-User-avatar.svg.png"}
                                 alt={account.username}
                                 className="chat-avatar"
-
                             />
                             <div className="user-info">
                                 <div className="username">  <span>UserName: </span> {account.username}</div>
@@ -217,7 +215,6 @@ const LeftPanel = ({
                         const pinned = allRooms.filter(room => pinnedRooms.includes(room));
                         const unpinned = allRooms.filter(room => !pinnedRooms.includes(room));
 
-                       
                         const sortedUnpinned = unpinned.sort((roomA, roomB) => {
                             const chatA = activeChats[roomA];
                             const chatB = activeChats[roomB];
@@ -237,7 +234,6 @@ const LeftPanel = ({
                             const timeB = chatB?.lastMessage?.timestamp ? new Date(chatB.lastMessage.timestamp).getTime() : 0;
                             return timeB - timeA;
                         });
-
                         // Combine pinned and sorted unpinned rooms
                         return [...pinned, ...sortedUnpinned];
                     })().map(room => {
@@ -291,7 +287,6 @@ const LeftPanel = ({
                                                     <button className="chat-menu-item" onClick={() => handlePinToggle(room)}>
                                                         {pinnedRooms.includes(room) ? 'Bỏ ghim' : 'Ghim hội thoại'}
                                                     </button>
-                                                
                                                 </div>
                                             )}
                                         </div>
