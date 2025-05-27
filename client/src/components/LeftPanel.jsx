@@ -12,7 +12,7 @@ const LeftPanel = ({
     activeRoom,
     setFriendModalVisible,
     onOpenGroupModal,
-    handleDeleteChat,
+
 }) => {
     const [userList, setUserList] = useState([]);
     const [inputValue, setInputValue] = useState("");
@@ -134,12 +134,7 @@ const LeftPanel = ({
         });
     };
 
-    const handleDeleteChatConfirm = (room) => {
-        if (window.confirm("Bạn có chắc muốn xóa đoạn hội thoại này?")) {
-            handleDeleteChat(room);
-            setChatOptionsVisible(null);
-        }
-    };
+
 
     return (
         <div className="col-3 border-end left-panel" style={{ padding: "10px" }}>
@@ -222,23 +217,22 @@ const LeftPanel = ({
                         const pinned = allRooms.filter(room => pinnedRooms.includes(room));
                         const unpinned = allRooms.filter(room => !pinnedRooms.includes(room));
 
-                        // Sort unpinned rooms: prioritize new group chats (no last message)
+                       
                         const sortedUnpinned = unpinned.sort((roomA, roomB) => {
                             const chatA = activeChats[roomA];
                             const chatB = activeChats[roomB];
 
-                            // Check if either chat is a new group (isGroup and no last message)
                             const isNewGroupA = chatA?.isGroup && (!chatA?.lastMessage || !chatA?.lastMessage?.timestamp);
                             const isNewGroupB = chatB?.isGroup && (!chatB?.lastMessage || !chatB?.lastMessage?.timestamp);
 
-                            // If both are new groups, maintain their relative order
+                          
                             if (isNewGroupA && isNewGroupB) return 0;
                             
-                            // If only one is a new group, it comes first
+                        
                             if (isNewGroupA) return -1;
                             if (isNewGroupB) return 1;
 
-                            // For all other cases, sort by last message timestamp
+                        
                             const timeA = chatA?.lastMessage?.timestamp ? new Date(chatA.lastMessage.timestamp).getTime() : 0;
                             const timeB = chatB?.lastMessage?.timestamp ? new Date(chatB.lastMessage.timestamp).getTime() : 0;
                             return timeB - timeA;
@@ -297,9 +291,7 @@ const LeftPanel = ({
                                                     <button className="chat-menu-item" onClick={() => handlePinToggle(room)}>
                                                         {pinnedRooms.includes(room) ? 'Bỏ ghim' : 'Ghim hội thoại'}
                                                     </button>
-                                                    <button className="chat-menu-item text-danger" onClick={() => handleDeleteChatConfirm(room)}>
-                                                        Xóa đoạn hội thoại
-                                                    </button>
+                                                
                                                 </div>
                                             )}
                                         </div>
