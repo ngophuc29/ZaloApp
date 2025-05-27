@@ -206,78 +206,100 @@ const LeftPanel = ({
                 </div>
             ) : (
                 <div className="chat-list">
-                    {[...pinnedRooms, ...Object.keys(activeChats).filter(r => !pinnedRooms.includes(r))]
-                        .map(room => {
-                            const chat = activeChats[room];
-                            const isActive = room === activeRoom;
-                            const isOptionsVisible = chatOptionsVisible === room;
-                            if (!chat) return null;
-                            return (
-                                <div
-                                    key={room}
-                                    className={`chat-item ${isActive ? 'active' : ''}`}
-                                    onClick={() => handleRoomClick(room)}
-                                >
-                                    <div className="chat-avatar">
-                                        {chat.isGroup ? (
-                                            <div className="group-avatar">
-                                                <FaUsers />
-                                            </div>
-                                        ) : (
-                                            <img
-                                                src={getAvatarByName(chat.partner)}
-                                                alt={chat.partner}
-                                                className="avatar"
-                                            />
+                    {/* Sort pinned rooms first, then unpinned rooms by last message timestamp */}
+                    {(() => {
+                        // Get all room keys
+                        const allRooms = Object.keys(activeChats);
+
+                        // Separate pinned and unpinned rooms
+                        const pinned = allRooms.filter(room => pinnedRooms.includes(room));
+                        const unpinned = allRooms.filter(room => !pinnedRooms.includes(room));
+
+                        // Sort unpinned rooms by last message timestamp (newest first)
+                        const sortedUnpinned = unpinned.sort((roomA, roomB) => {
+                            const chatA = activeChats[roomA];
+                            const chatB = activeChats[roomB];
+
+                            // Handle cases where lastMessage might be missing
+                            if (!chatA || !chatA.lastMessage || !chatA.lastMessage.timestamp) return 1; // Put chats without last message at the bottom
+                            if (!chatB || !chatB.lastMessage || !chatB.lastMessage.timestamp) return -1; // Put chats without last message at the bottom
+
+                            return new Date(chatB.lastMessage.timestamp) - new Date(chatA.lastMessage.timestamp);
+                        });
+
+                        // Combine pinned and sorted unpinned rooms
+                        return [...pinned, ...sortedUnpinned];
+                    })().map(room => {
+                        const chat = activeChats[room];
+                        const isActive = room === activeRoom;
+                        const isOptionsVisible = chatOptionsVisible === room;
+                        if (!chat) return null;
+                        return (
+                            <div
+                                key={room}
+                                className={`chat-item ${isActive ? 'active' : ''}`}
+                                onClick={() => handleRoomClick(room)}
+                            >
+                                <div className="chat-avatar">
+                                    {chat.isGroup ? (
+                                        <div className="group-avatar">
+                                            <FaUsers />
+                                        </div>
+                                    ) : (
+                                        <img
+                                            src={getAvatarByName(chat.partner)}
+                                            alt={chat.partner}
+                                            className="avatar"
+                                        />
+                                    )}
+                                </div>
+
+                                <div className="chat-info">
+                                    <div className="chat-header">
+                                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                                            <span className="chat-name">
+                                                {chat.isGroup ? getGroupName(room) : chat.partner}
+                                            </span>
+                                        </div>
+                                        {chat.lastMessage && (
+                                            <span className="chat-time">
+                                                {formatTime(chat.lastMessage.timestamp)}
+                                            </span>
+                                        )}
+                                        <div
+                                            className="chat-options"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setChatOptionsVisible(prev => prev === room ? null : room);
+                                            }}
+                                            style={{ position: 'relative' }}
+                                        >
+                                            <FaEllipsisV className="chat-options-icon" style={{ fontSize: '10px', color: '#aaa' }} />
+                                            {isOptionsVisible && (
+                                                <div className="chat-menu" style={{ position: 'absolute', right: 0, zIndex: 100 }}>
+                                                    <button className="chat-menu-item" onClick={() => handlePinToggle(room)}>
+                                                        {pinnedRooms.includes(room) ? 'Bỏ ghim' : 'Ghim hội thoại'}
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="chat-preview" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span className="last-message">{renderLastMessage(chat)}</span>
+                                        {chat.unread > 0 && (
+                                            <span className="unread-badge">
+                                                {chat.unread}
+                                            </span>
+                                        )}
+                                        {pinnedRooms.includes(room) && (
+                                            <FaThumbtack className="pinned-icon" title="Đã ghim" />
                                         )}
                                     </div>
-
-                                    <div className="chat-info">
-                                        <div className="chat-header">
-                                            <div style={{ display: 'flex', alignItems: 'center' }}>
-                                                <span className="chat-name">
-                                                    {chat.isGroup ? getGroupName(room) : chat.partner}
-                                                </span>
-                                            </div>
-                                            {chat.lastMessage && (
-                                                <span className="chat-time">
-                                                    {formatTime(chat.lastMessage.timestamp)}
-                                                </span>
-                                            )}
-                                            <div
-                                                className="chat-options"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setChatOptionsVisible(prev => prev === room ? null : room);
-                                                }}
-                                                style={{ position: 'relative' }}
-                                            >
-                                                <FaEllipsisV className="chat-options-icon" style={{ fontSize: '10px', color: '#aaa' }} />
-                                                {isOptionsVisible && (
-                                                    <div className="chat-menu" style={{ position: 'absolute', right: 0, zIndex: 100 }}>
-                                                        <button className="chat-menu-item" onClick={() => handlePinToggle(room)}>
-                                                            {pinnedRooms.includes(room) ? 'Bỏ ghim' : 'Ghim hội thoại'}
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        <div className="chat-preview" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <span className="last-message">{renderLastMessage(chat)}</span>
-                                            {chat.unread > 0 && (
-                                                <span className="unread-badge">
-                                                    {chat.unread}
-                                                </span>
-                                            )}
-                                            {pinnedRooms.includes(room) && (
-                                                <FaThumbtack className="pinned-icon" title="Đã ghim" />
-                                            )}
-                                        </div>
-                                    </div>
                                 </div>
-                            );
-                        })}
+                            </div>
+                        );
+                    })}
                 </div>
             )}
         </div>
