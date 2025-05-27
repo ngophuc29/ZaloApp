@@ -1256,7 +1256,7 @@ const ChatContainer = ({
                         </button>
                     )}
                     {/* Nút gọi video */}
-                    {isPrivateChat(currentRoom) && !isStranger && (
+                    {/* {isPrivateChat(currentRoom) && !isStranger && (
                         <button
                             className="btn btn-success btn-action"
                             onClick={async () => {
@@ -1304,7 +1304,7 @@ const ChatContainer = ({
                         >
                             <i className="fas fa-video"></i> Gọi video
                         </button>
-                    )}
+                    )} */}
                 </div>
 
                 {/* Row for input and send */}
