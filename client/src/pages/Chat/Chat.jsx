@@ -14,7 +14,7 @@ import ForwardModal from "../../components/ForwardModal";
 import { ToastContainer, toast } from 'react-toastify';
 
 // Khởi tạo socket (điều chỉnh URL nếu cần)
-const socket = io("https://sockettubuild.onrender.com");
+const socket = io("http://localhost:5000");
 
 // Mảng cảm xúc
 const emotions = [

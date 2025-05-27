@@ -21,7 +21,7 @@ const VerifyOtp = () => {
     setLoading(true);
     try {
       const response = await axios.post(
-        `https://sockettubuild.onrender.com/api/accounts/verify-otp`,
+        `http://localhost:5000/api/accounts/verify-otp`,
         { email, otp }
       );
 

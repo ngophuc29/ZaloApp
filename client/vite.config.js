@@ -10,7 +10,7 @@ export default defineConfig({
   server: {
     port: 3000, // Đặt Vite dev server chạy ở port 3000
     proxy: {
-      '/api': 'https://sockettubuild.onrender.com', // Chuyển tiếp các request /api đến backend
+      '/api': 'http://localhost:5000', // Chuyển tiếp các request /api đến backend
     },
   },
   resolve: {

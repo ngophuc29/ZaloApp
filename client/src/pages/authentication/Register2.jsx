@@ -45,7 +45,7 @@ const Register2 = () => {
 
         setLoading(true);
         try {
-            const checkUsername = await axios.get(`https://sockettubuild.onrender.com/api/accounts/check-username`, {
+            const checkUsername = await axios.get(`http://localhost:5000/api/accounts/check-username`, {
                 params: { username },
             });
 
@@ -55,7 +55,7 @@ const Register2 = () => {
                 return;
             }
 
-            const checkPhone = await axios.get(`https://sockettubuild.onrender.com/api/accounts/check-phone`, {
+            const checkPhone = await axios.get(`http://localhost:5000/api/accounts/check-phone`, {
                 params: { phone },
             });
 
@@ -65,7 +65,7 @@ const Register2 = () => {
                 return;
             }
 
-            const response = await axios.post(`https://sockettubuild.onrender.com/api/accounts/register-step2`, {
+            const response = await axios.post(`http://localhost:5000/api/accounts/register-step2`, {
                 username,
                 password,
                 phone,

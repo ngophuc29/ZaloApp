@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import io from "socket.io-client";
 
 // Kết nối đến backend (điều chỉnh URL nếu cần)
-const socket = io("https://sockettubuild.onrender.com");
+const socket = io("http://localhost:5000");
 
 const Contacts = () => {
     const myUsername = localStorage.getItem("username") || "Guest";

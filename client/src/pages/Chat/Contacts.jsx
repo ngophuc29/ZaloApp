@@ -12,7 +12,7 @@ import "react-toastify/dist/ReactToastify.css";
 
 // Khởi tạo socket (đảm bảo chỉ tạo 1 instance chung nếu cần tái sử dụng)
 // Bạn có thể chuyển khởi tạo này ra riêng thành utils/socket.js rồi import về
-const socket = io("https://sockettubuild.onrender.com");
+const socket = io("http://localhost:5000");
 
 const menuItems = [
     { icon: <FaUserFriends />, label: "Danh sách bạn bè" },
@@ -38,7 +38,7 @@ const Contacts = () => {
         socket.emit("registerUser", myUsername);
 
         // 1) Load danh sách tất cả account để show avatar, fullname...
-        fetch("https://sockettubuild.onrender.com/api/accounts")
+        fetch("http://localhost:5000/api/accounts")
             .then((res) => res.json())
             .then((data) => setUserList(data))
             .catch((err) => console.error("Error fetching accounts:", err));

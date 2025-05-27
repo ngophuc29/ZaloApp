@@ -40,7 +40,7 @@ const NavigationPanel = ({ activeTab, setActiveTab, navigate, myname, refreshCon
 
         const usernameToFetch = myname || storedUser.username;
         if (usernameToFetch) {
-            fetch(`https://sockettubuild.onrender.com/api/accounts/username/${usernameToFetch}`)
+            fetch(`http://localhost:5000/api/accounts/username/${usernameToFetch}`)
                 .then(res => res.json())
                 .then(data => {
                     if (data && !data.message) {
@@ -100,19 +100,15 @@ const NavigationPanel = ({ activeTab, setActiveTab, navigate, myname, refreshCon
                     // 2. Reset state trước khi xóa storage
                     setActiveChats({});
 
-                    // 3. Xóa từng item trong localStorage một cách rõ ràng
                     const itemsToRemove = [
                         "activeChats",
                         "currentRoom",
                         "username",
                         "user"
                     ];
-
                     itemsToRemove.forEach(item => {
                         localStorage.removeItem(item);
                     });
-
-                    // 4. Xóa các storage khác để đảm bảo
                     localStorage.clear();
                     sessionStorage.clear();
 
@@ -178,7 +174,7 @@ const NavigationPanel = ({ activeTab, setActiveTab, navigate, myname, refreshCon
         }
 
         try {
-            const res = await axios.put(`https://sockettubuild.onrender.com/api/accounts/change-password/${userInfo.username}`, {
+            const res = await axios.put(`http://localhost:5000/api/accounts/change-password/${userInfo.username}`, {
                 oldPassword,
                 newPassword,
             });
@@ -204,7 +200,7 @@ const NavigationPanel = ({ activeTab, setActiveTab, navigate, myname, refreshCon
     // Save thông tin người dùng
     const handleSave = async () => {
         try {
-            const res = await fetch(`https://sockettubuild.onrender.com/api/accounts/${userInfo.username}`, {
+            const res = await fetch(`http://localhost:5000/api/accounts/${userInfo.username}`, {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json"
@@ -225,7 +221,7 @@ const NavigationPanel = ({ activeTab, setActiveTab, navigate, myname, refreshCon
                 setIsModalVisible(false);
 
                 // Cập nhật lại dữ liệu
-                const updatedRes = await fetch(`https://sockettubuild.onrender.com/api/accounts/username/${userInfo.username}`);
+                const updatedRes = await fetch(`http://localhost:5000/api/accounts/username/${userInfo.username}`);
                 const updatedData = await updatedRes.json();
 
                 if (updatedData && !updatedData.message) {

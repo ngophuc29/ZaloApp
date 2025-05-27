@@ -131,7 +131,7 @@ const ChatContainer = ({
 
         const usernameToFetch = myname || storedUser.username;
         if (usernameToFetch) {
-            fetch(`https://sockettubuild.onrender.com/api/accounts/username/${usernameToFetch}`)
+            fetch(`http://localhost:5000/api/accounts/username/${usernameToFetch}`)
                 .then(res => res.json())
                 .then(data => {
                     if (data && !data.message) {
@@ -218,7 +218,7 @@ const ChatContainer = ({
 
     useEffect(() => {
 
-        fetch("https://sockettubuild.onrender.com/api/accounts")
+        fetch("http://localhost:5000/api/accounts")
             .then((res) => res.json())
             .then((data) => {
                 setUserList(data)

@@ -23,7 +23,7 @@ const LeftPanel = ({
     const isSearching = inputValue.trim().length > 0;
 
     useEffect(() => {
-        fetch("https://sockettubuild.onrender.com/api/accounts")
+        fetch("http://localhost:5000/api/accounts")
             .then((res) => res.json())
             .then((data) => {
                 setUserList(data);
