@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { FaSearch, FaUserPlus, FaUsers } from "react-icons/fa";
-import "./LeftPanel.css"; // We'll create this file next
+import { FaSearch, FaUserPlus, FaUsers, FaEllipsisV, FaThumbtack } from "react-icons/fa";
+import "./LeftPanel.css"; 
 
 const LeftPanel = ({
     searchFilter,
@@ -14,16 +14,59 @@ const LeftPanel = ({
     onOpenGroupModal,
 }) => {
     const [userList, setUserList] = useState([]);
-    const isSearching = searchFilter.trim().length > 0;
+    const [inputValue, setInputValue] = useState("");
+    const [chatOptionsVisible, setChatOptionsVisible] = useState(null);
+    const [pinnedRooms, setPinnedRooms] = useState(() => {
+        const saved = localStorage.getItem("pinnedRooms");
+        return saved ? JSON.parse(saved) : [];
+    });
+    const isSearching = inputValue.trim().length > 0;
 
     useEffect(() => {
-        fetch("http://localhost:5000/api/accounts")
+        fetch("https://sockettubuild.onrender.com/api/accounts")
             .then((res) => res.json())
             .then((data) => {
                 setUserList(data);
             })
             .catch((err) => console.error("Error fetching accounts:", err));
     }, []);
+
+    useEffect(() => {
+        localStorage.setItem("pinnedRooms", JSON.stringify(pinnedRooms));
+    }, [pinnedRooms]);
+
+ 
+    useEffect(() => {
+        const handleDocumentClick = (event) => {
+            if (!event.target.closest('.chat-options') && !event.target.closest('.chat-menu')) {
+                setChatOptionsVisible(null);
+            }
+        };
+
+        document.addEventListener('click', handleDocumentClick);
+
+        return () => {
+            document.removeEventListener('click', handleDocumentClick);
+        };
+    }, [chatOptionsVisible]);
+
+    const handleInputChange = (e) => {
+        const value = e.target.value;
+        setInputValue(value);
+        if (value === "") {
+            setSearchFilter("");
+        } else if (/^\d{10}$/.test(value)) {
+            setSearchFilter(value);
+        } else if (searchFilter !== "") {
+            setSearchFilter("");
+        }
+    };
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter' && inputValue.trim()) {
+            setSearchFilter(inputValue);
+        }
+    };
 
     const getAvatarByName = (name) => {
         const user = userList.find((u) => u.username === name);
@@ -65,7 +108,30 @@ const LeftPanel = ({
         return `${sender}: ${body}`;
     };
 
+    const getGroupName = (room) => {
+        return room.includes("_") ? room.split("_")[0] : room;
+    };
 
+    const handlePinToggle = (room) => {
+        setPinnedRooms(prev => {
+            if (prev.includes(room)) {
+                const updated = prev.filter(r => r !== room);
+                setTimeout(() => setChatOptionsVisible(null), 0); 
+                return updated;
+            } else {
+                if (prev.length < 5) {
+                    const updated = [room, ...prev];
+                     setTimeout(() => setChatOptionsVisible(null), 0); 
+                    return updated;
+                } else {
+                  
+                    alert('Bạn chỉ có thể ghim tối đa 5 cuộc hội thoại.'); 
+                     setTimeout(() => setChatOptionsVisible(null), 0);
+                    return prev; 
+                }
+            }
+        });
+    };
 
     return (
         <div className="col-3 border-end left-panel" style={{ padding: "10px" }}>
@@ -78,16 +144,20 @@ const LeftPanel = ({
                     <input
                         type="text"
                         className="form-control"
-                        placeholder="Tìm kiếm"
-                        value={searchFilter}
-                        onChange={(e) => setSearchFilter(e.target.value)}
+                        placeholder="Nhập đủ số điện thoại hoặc nhấn Enter"
+                        value={inputValue}
+                        onChange={handleInputChange}
+                        onKeyDown={handleKeyDown}
                     />
                 </div>
 
                 {isSearching ? (
                     <button
                         className="btn btn-danger ms-2"
-                        onClick={() => setSearchFilter("")}
+                        onClick={() => {
+                            setSearchFilter("");
+                            setInputValue("");
+                        }}
                     >
                         Đóng
                     </button>
@@ -136,17 +206,12 @@ const LeftPanel = ({
                 </div>
             ) : (
                 <div className="chat-list">
-                    {Object.entries(activeChats)
-                        .sort(([, a], [, b]) => {
-                            // Nếu không có lastMessage thì cho xuống cuối
-                            if (!a.lastMessage && !b.lastMessage) return 0;
-                            if (!a.lastMessage) return 1;
-                            if (!b.lastMessage) return -1;
-                            // So sánh thời gian lastMessage mới nhất
-                            return new Date(b.lastMessage.timestamp) - new Date(a.lastMessage.timestamp);
-                        })
-                        .map(([room, chat]) => {
+                    {[...pinnedRooms, ...Object.keys(activeChats).filter(r => !pinnedRooms.includes(r))]
+                        .map(room => {
+                            const chat = activeChats[room];
                             const isActive = room === activeRoom;
+                            const isOptionsVisible = chatOptionsVisible === room;
+                            if (!chat) return null;
                             return (
                                 <div
                                     key={room}
@@ -169,22 +234,44 @@ const LeftPanel = ({
 
                                     <div className="chat-info">
                                         <div className="chat-header">
-                                            <span className="chat-name">
-                                                {chat.isGroup ? room : chat.partner}
-                                            </span>
+                                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                                                <span className="chat-name">
+                                                    {chat.isGroup ? getGroupName(room) : chat.partner}
+                                                </span>
+                                            </div>
                                             {chat.lastMessage && (
                                                 <span className="chat-time">
                                                     {formatTime(chat.lastMessage.timestamp)}
                                                 </span>
                                             )}
+                                            <div
+                                                className="chat-options"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setChatOptionsVisible(prev => prev === room ? null : room);
+                                                }}
+                                                style={{ position: 'relative' }}
+                                            >
+                                                <FaEllipsisV className="chat-options-icon" style={{ fontSize: '10px', color: '#aaa' }} />
+                                                {isOptionsVisible && (
+                                                    <div className="chat-menu" style={{ position: 'absolute', right: 0, zIndex: 100 }}>
+                                                        <button className="chat-menu-item" onClick={() => handlePinToggle(room)}>
+                                                            {pinnedRooms.includes(room) ? 'Bỏ ghim' : 'Ghim hội thoại'}
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
 
-                                        <div className="chat-preview">
+                                        <div className="chat-preview" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                             <span className="last-message">{renderLastMessage(chat)}</span>
                                             {chat.unread > 0 && (
                                                 <span className="unread-badge">
                                                     {chat.unread}
                                                 </span>
+                                            )}
+                                            {pinnedRooms.includes(room) && (
+                                                <FaThumbtack className="pinned-icon" title="Đã ghim" />
                                             )}
                                         </div>
                                     </div>
