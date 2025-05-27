@@ -1068,7 +1068,7 @@ const Chat = () => {
                     accounts={accounts}
                     myname={myname}
                     friends={friends}
-                    setFriendModal open={setFriendModalVisible}
+                    setFriendModalVisible={setFriendModalVisible}
                     handleAddFriend={handleAddFriend}
                     handleWithdrawFriendRequest={handleWithdrawFriendRequest}
                     requestedFriends={requestedFriends}
