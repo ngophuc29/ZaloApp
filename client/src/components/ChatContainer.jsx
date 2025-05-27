@@ -533,15 +533,43 @@ const ChatContainer = ({
         return null;
     };
 
-    // Lấy danh sách file đã gửi trong đoạn chat
-    const sentFiles = messages.filter(msg => msg.fileUrl);
-    const sentImagesVideos = sentFiles.filter(msg =>
+    // Lấy danh sách file đã gửi trong đoạn chat (không phụ thuộc vào message đang hiển thị)
+    const allSentFiles = messages.filter(msg => msg.fileUrl);
+    // const allSentImagesVideos = allSentFiles.filter(msg =>
+    //     msg.fileType === 'image' ||
+    //     /\.(jpe?g|png|gif|webp)$/i.test(msg.fileUrl) ||
+    //     msg.fileType === 'video' ||
+    //     /\.(mp4|webm|ogg)$/i.test(msg.fileUrl)
+    // );
+    // const allSentOtherFiles = allSentFiles.filter(msg =>
+    //     !(
+    //         msg.fileType === 'image' ||
+    //         /\.(jpe?g|png|gif|webp)$/i.test(msg.fileUrl) ||
+    //         msg.fileType === 'video' ||
+    //         /\.(mp4|webm|ogg)$/i.test(msg.fileUrl)
+    //     )
+    // );
+
+    // Lấy toàn bộ file/ảnh/video của đoạn chat từ server khi mở panel chi tiết
+    const [allFilesInRoom, setAllFilesInRoom] = useState([]);
+    useEffect(() => {
+        if (showDetailPanel && currentRoom && socket) {
+            socket.emit('getAllFilesInRoom', currentRoom);
+        }
+    }, [showDetailPanel, currentRoom, socket]);
+    useEffect(() => {
+        if (!socket) return;
+        const handler = (files) => setAllFilesInRoom(files || []);
+        socket.on('allFilesInRoom', handler);
+        return () => socket.off('allFilesInRoom', handler);
+    }, [socket]);
+    const allSentImagesVideos = allFilesInRoom.filter(msg =>
         msg.fileType === 'image' ||
         /\.(jpe?g|png|gif|webp)$/i.test(msg.fileUrl) ||
         msg.fileType === 'video' ||
         /\.(mp4|webm|ogg)$/i.test(msg.fileUrl)
     );
-    const sentOtherFiles = sentFiles.filter(msg =>
+    const allSentOtherFiles = allFilesInRoom.filter(msg =>
         !(
             msg.fileType === 'image' ||
             /\.(jpe?g|png|gif|webp)$/i.test(msg.fileUrl) ||
@@ -674,6 +702,10 @@ const ChatContainer = ({
         return () => socket.off("history", handleHistory);
     }, [socket, setMessages]);
 
+    // State để điều khiển xem tất cả ảnh/video/file
+    const [showAllImagesVideos, setShowAllImagesVideos] = useState(false);
+    const [showAllFiles, setShowAllFiles] = useState(false);
+
     return (
         <div className="col-9" style={{ padding: "10px", position: "relative", height: "100vh" }}>
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10, justifyContent: 'space-between' }}>
@@ -728,11 +760,12 @@ const ChatContainer = ({
                         </div>
                     </div>
                     <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
+                        {/* Ảnh/Video */}
                         <div style={{ marginBottom: 32 }}>
                             <div style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 12, borderBottom: '1px solid #eee', paddingBottom: 4 }}>Ảnh/Video</div>
-                            {sentImagesVideos.length === 0 && <div style={{ color: '#888', fontSize: 13 }}>Chưa có ảnh hoặc video nào</div>}
+                            {allSentImagesVideos.length === 0 && <div style={{ color: '#888', fontSize: 13 }}>Chưa có ảnh hoặc video nào</div>}
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                                {sentImagesVideos.map((msg, idx) => (
+                                {(showAllImagesVideos ? allSentImagesVideos : allSentImagesVideos.slice(0, 6)).map((msg, idx) => (
                                     <div key={msg._id || msg.id || idx} style={{ width: 90, height: 90, borderRadius: 8, overflow: 'hidden', background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: msg.fileType === 'image' || /\.(jpe?g|png|gif|webp)$/i.test(msg.fileUrl) ? 'pointer' : 'default' }}
                                         onClick={() => {
                                             if (msg.fileType === 'image' || /\.(jpe?g|png|gif|webp)$/i.test(msg.fileUrl)) {
@@ -749,12 +782,19 @@ const ChatContainer = ({
                                     </div>
                                 ))}
                             </div>
+                            {allSentImagesVideos.length > 6 && !showAllImagesVideos && (
+                                <button className="btn btn-link" style={{ marginTop: 8 }} onClick={() => setShowAllImagesVideos(true)}>Xem tất cả</button>
+                            )}
+                            {showAllImagesVideos && allSentImagesVideos.length > 6 && (
+                                <button className="btn btn-link" style={{ marginTop: 8 }} onClick={() => setShowAllImagesVideos(false)}>Ẩn bớt</button>
+                            )}
                         </div>
+                        {/* File */}
                         <div>
                             <div style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 12, borderBottom: '1px solid #eee', paddingBottom: 4 }}>File</div>
-                            {sentOtherFiles.length === 0 && <div style={{ color: '#888', fontSize: 13 }}>Chưa có file nào</div>}
+                            {allSentOtherFiles.length === 0 && <div style={{ color: '#888', fontSize: 13 }}>Chưa có file nào</div>}
                             <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                                {sentOtherFiles.map((msg, idx) => (
+                                {(showAllFiles ? allSentOtherFiles : allSentOtherFiles.slice(0, 6)).map((msg, idx) => (
                                     <li key={msg._id || msg.id || idx} style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
                                         <i className="fa-solid fa-file" style={{ fontSize: 22, color: '#007bff' }}></i>
                                         <div style={{ flex: 1 }}>
@@ -766,6 +806,12 @@ const ChatContainer = ({
                                     </li>
                                 ))}
                             </ul>
+                            {allSentOtherFiles.length > 6 && !showAllFiles && (
+                                <button className="btn btn-link" style={{ marginTop: 8 }} onClick={() => setShowAllFiles(true)}>Xem tất cả</button>
+                            )}
+                            {showAllFiles && allSentOtherFiles.length > 6 && (
+                                <button className="btn btn-link" style={{ marginTop: 8 }} onClick={() => setShowAllFiles(false)}>Ẩn bớt</button>
+                            )}
                         </div>
                     </div>
                 </div>
