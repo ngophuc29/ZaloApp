@@ -260,8 +260,13 @@ const GroupDetailsModal = ({
                         {/* Leave Group */}
                         <button
                             className="btn btn-warning"
-                            disabled={isOwner && !selectedNewOwner}
-                            onClick={() => handleLeaveGroup(isOwner ? selectedNewOwner : null)}
+                            onClick={() => {
+                                if (isOwner && !selectedNewOwner) {
+                                    alert("Bạn phải chọn người để chuyển quyền trưởng nhóm trước");
+                                    return;
+                                }
+                                handleLeaveGroup(isOwner ? selectedNewOwner : null);
+                            }}
                         >
                             {isOwner ? "Transfer & Leave" : "Leave Group"}
                         </button>

@@ -165,8 +165,15 @@ const NavigationPanel = ({ activeTab, setActiveTab, navigate, myname, refreshCon
             return;
         }
 
+        // Kiểm tra mật khẩu mới: ít nhất 6 ký tự, có cả chữ và số
+        const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/;
+        if (!passwordRegex.test(newPassword)) {
+            alert("Mật khẩu mới phải có cả chữ, số và ít nhất 6 ký tự");
+            return;
+        }
+
         if (newPassword !== confirmPassword) {
-            message.error("Mật khẩu mới không trùng khớp");
+            alert("Mật khẩu mới không trùng khớp");
             return;
         }
 
@@ -175,18 +182,22 @@ const NavigationPanel = ({ activeTab, setActiveTab, navigate, myname, refreshCon
                 oldPassword,
                 newPassword,
             });
-            console.log(res.data);
-
             if (res.status === 200 && res.data.message === "Password updated") {
                 toast.success("Đổi mật khẩu thành công!");
                 setIsChangePasswordVisible(false);
                 setPasswordData({ oldPassword: "", newPassword: "", confirmPassword: "" });
+            } else if (res.data.message === "Mật khẩu cũ không đúng") {
+                alert("Mật khẩu sai");
             } else {
                 message.error(res.data.message || "Đổi mật khẩu thất bại");
             }
         } catch (error) {
-            console.error("Lỗi đổi mật khẩu:", error);
-            message.error(error.response?.data?.message || "Lỗi khi đổi mật khẩu");
+            if (error.response?.data?.message === "Mật khẩu cũ không đúng") {
+                alert("Mật khẩu sai");
+            } else {
+                console.error("Lỗi đổi mật khẩu:", error);
+                message.error(error.response?.data?.message || "Lỗi khi đổi mật khẩu");
+            }
         }
     };
 
